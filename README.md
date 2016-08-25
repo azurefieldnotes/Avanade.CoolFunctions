@@ -20,5 +20,9 @@ A PowerShell module containing a collection of miscellaneous relatively handy fu
     * Takes XML and returns a formatted indented document
 * Resize-Image
     * Resizes an image file
+* ConvertFrom-UnixTime
+    * Converts a Unix timestamp to a DateTime
+* ConvertTo-UnixTime
+    * Converts a DateTime to a Unix Timestamp
 
 ## Follow us on Twitter [@azurefieldnotes][]

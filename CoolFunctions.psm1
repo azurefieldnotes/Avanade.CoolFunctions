@@ -318,7 +318,7 @@ Function ConvertTo-PrefixLengthFromSubnetMask
         The Parent Activity
 
 #>
-function Copy-FileWithProgress 
+Function Copy-FileWithProgress 
 {
     [CmdletBinding(DefaultParameterSetName='fileinfo')]
     param
@@ -412,4 +412,43 @@ function Copy-FileWithProgress
             $StopWatch.Stop()
         }
     }
+}
+
+<#
+    .SYNOPSIS
+        Converts a Unix Timestamp to DateTime
+    .PARAMETER UnixTime
+        The Unix Timestamp to be converted
+#>
+Function ConvertFrom-UnixTime
+{
+    [OutputType([System.DateTime])]
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        [double]
+        $UnixTime
+    )
+    $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0)
+    return $epoch.AddSeconds($UnixTime)
+}
+
+<#
+    .SYNOPSIS
+        Converts a DateTime to a Unix Timestamp
+    .PARAMETER DateTime
+        The DateTime to be converted
+#>
+Function ConvertTo-UnixTime
+{
+    [OutputType([System.Double])]
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        [datetime]
+        $DateTime
+    )
+    $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0);
+    $delta = $DateTime - $epoch;
+    return [Math]::Floor($delta.TotalSeconds);
 }
