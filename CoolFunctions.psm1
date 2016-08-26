@@ -245,7 +245,122 @@ Function ConvertTo-SubnetMaskFromCIDR
 
 <#
     .SYNOPSIS
-        Converts a Subnet Mask to a Prefix Length in a less than clever way
+        Converts a CIDR as string to a network address
+    .PARAMETER CIDR
+        The CIDR to convert
+#>
+Function ConvertTo-NetworkAddressFromCIDR
+{
+    [CmdletBinding()]
+    [OutputType([String])]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [String]
+        $CIDR
+    )
+    
+    $IpString=$CIDR.Split("/")[0]
+    $PrefixLength=[System.Convert]::ToInt32($CIDR.Split("/")[1])
+    [System.Net.IPAddress]$IpAddress=$null
+    if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
+    {
+        $AddressBytes=$IpAddress.GetAddressBytes()
+        [Array]::Reverse($AddressBytes)
+        $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
+        #Bitwise AND the NetMask and the IP
+        $NetMask=[Convert]::ToUInt32(("1" * $PrefixLength).PadRight(32, "0"), 2)
+        $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -band $NetMask))
+        [System.Array]::Reverse($NetAddressBytes)
+        $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+        return $NetAddressAsIp.IPAddressToString
+    }
+    else
+    {
+        throw "Unable to parse the IP Address $IpString"
+    }
+}
+
+<#
+    .SYNOPSIS
+        Converts a CIDR as string to a broadcast address
+    .PARAMETER CIDR
+        The CIDR to convert
+#>
+Function ConvertTo-BroadcastAddressFromCIDR
+{
+    [CmdletBinding()]
+    [OutputType([String])]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [String]
+        $CIDR
+    )
+    
+    $IpString=$CIDR.Split("/")[0]
+    $PrefixLength=[System.Convert]::ToInt32($CIDR.Split("/")[1])
+    [System.Net.IPAddress]$IpAddress=$null
+    if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
+    {
+        $AddressBytes=$IpAddress.GetAddressBytes()
+        [Array]::Reverse($AddressBytes)
+        $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
+        #Bitwise OR the Host Mask and the IP
+        $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
+        $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -bor $HostMask))
+        [System.Array]::Reverse($NetAddressBytes)
+        $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+        return $NetAddressAsIp.IPAddressToString
+    }
+    else
+    {
+        throw "Unable to parse the IP Address $IpString"
+    }
+}
+
+<#
+    .SYNOPSIS
+        Converts a CIDR as string to the last address
+    .PARAMETER CIDR
+        The CIDR to convert
+#>
+Function ConvertTo-NetworkRangeEndFromCIDR
+{
+    [CmdletBinding()]
+    [OutputType([String])]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [String]
+        $CIDR
+    )
+    
+    $IpString=$CIDR.Split("/")[0]
+    $PrefixLength=[System.Convert]::ToInt32($CIDR.Split("/")[1])
+    [System.Net.IPAddress]$IpAddress=$null
+    if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
+    {
+        $AddressBytes=$IpAddress.GetAddressBytes()
+        [Array]::Reverse($AddressBytes)
+        $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
+        #Bitwise OR the Host Mask and the IP
+        $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
+        $LastAddress=($IpAsUint -bor $HostMask)-1
+        $NetAddressBytes=[BitConverter]::GetBytes($LastAddress)
+        [System.Array]::Reverse($NetAddressBytes)
+        $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+        return $NetAddressAsIp.IPAddressToString
+    }
+    else
+    {
+        throw "Unable to parse the IP Address $IpString"
+    }
+}
+
+<#
+    .SYNOPSIS
+        Converts a Subnet Mask to a Prefix Length
     .PARAMETER SubnetMask
         The SubnetMask to convert
 #>
@@ -261,44 +376,22 @@ Function ConvertTo-PrefixLengthFromSubnetMask
         [string]
         $SubnetMask
     )
-    $cLength=0
-    switch ($SubnetMask)
+
+    [System.Net.IPAddress]$SubnetAsIp=$null
+    if([System.Net.IPAddress]::TryParse($SubnetMask,[ref]$SubnetAsIp))
     {
-        "128.0.0.0"{$cLength=1}
-        "192.0.0.0"{$cLength=2}
-        "224.0.0.0"{$cLength=3}
-        "240.0.0.0"{$cLength=4}
-        "248.0.0.0"{$cLength=5}
-        "252.0.0.0"{$cLength=6}
-        "254.0.0.0" {$cLength=7}
-        "255.0.0.0"{$cLength=8}
-        "255.128.0.0"{$cLength=9}
-        "255.192.0.0"{$cLength=10}
-        "255.192.0.0"{$cLength=11}
-        "255.240.0.0"{$cLength=12}
-        "255.248.0.0"{$cLength=13}
-        "255.252.0.0"{$cLength=14}
-        "255.254.0.0"{$cLength=15}
-        "255.255.0.0"{$cLength=16}
-        "255.255.128.0"{$cLength=17}
-        "255.255.192.0"{$cLength=18}
-        "255.255.224.0"{$cLength=19}
-        "255.255.240.0"{$cLength=20}
-        "255.255.248.0"{$cLength=21}
-        "255.255.252.0"{$cLength=22}
-        "255.255.254.0"{$cLength=23}
-        "255.255.255.0"{$cLength=24}
-        "255.255.255.128"{$cLength=25}
-        "255.255.255.192"{$cLength=26}
-        "255.255.255.224"{$cLength=27}
-        "255.255.255.240"{$cLength=28}
-        "255.255.255.248"{$cLength=29}
-        "255.255.255.252"{$cLength=30}
-        "255.255.255.254"{$cLength=31}
-        "255.255.255.255"{$cLength=32}
-        default{throw "I could not be bothered to calculate $SubnetMask's Length"}
+        $MaskString=[String]::Empty
+        foreach ($AddressByte in $SubnetAsIp.GetAddressBytes())
+        {
+            $MaskString+=[Convert]::ToString($AddressByte,2)    
+        }
+        $MaskString=$MaskString -Replace '[\s0]'
+        return $MaskString.Length
     }
-    return $cLength
+    else 
+    {
+        throw "Unable to parse the Subnet Mask $SubnetMask!"    
+    }
 }
 
 <#
