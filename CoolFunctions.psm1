@@ -30,7 +30,12 @@ Function Resize-Image
     {
 	    foreach($item in $Source)
 	    {
-		    $ImageSource=New-Object System.Windows.Media.Imaging.BitmapImage($item.FullName)
+            #Prevent the file from getting locked
+		    $ImageSource=New-Object System.Windows.Media.Imaging.BitmapImage
+            $ImageSource.BeginInit()
+            $ImageSource.UriSource=$item.FullName
+            $ImageSource.CacheOption=[System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+            $ImageSource.EndInit()
 		    ## Open and resize the image
 		    $image = New-Object System.Windows.Media.Imaging.TransformedBitmap ($ImageSource,$ScaleTransform)
 		    ## Put it on the clipboard (just for fun)
