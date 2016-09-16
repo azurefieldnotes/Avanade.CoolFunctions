@@ -550,3 +550,58 @@ Function ConvertTo-UnixTime
     $delta = $DateTime - $epoch;
     return [Math]::Floor($delta.TotalSeconds);
 }
+
+<#
+    .SYNOPSIS
+    Converts a DateTime to ISO 5601 Time string
+#>
+Function ConvertTo-Iso8601Time
+{
+    [OutputType([String])]
+    [CmdletBinding()]
+    param 
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [System.DateTime]
+        $Time
+    )
+
+    $Offset=New-Object System.DateTimeOffset($Time)
+    return $Offset.ToString('o')
+}
+
+<#
+    .SYNOPSIS
+        Simple constructor wrapper for PSCredential
+    .PARAMETER UserName
+        The UserName
+    .PARAMETER Password
+        The Password as a SecureString
+    .PARAMETER ClearPassword
+        The Password as plain text
+#>
+Function New-PSCredential
+{
+    [OutputType([SecureString])]
+    [CmdletBinding(DefaultParameterSetName='Secure')]
+    param
+    (
+        [Parameter(Mandatory=$true,ParameterSetName='Secure')]
+        [Parameter(Mandatory=$true,ParameterSetName='Plain')]
+        [string]
+        $UserName,
+        [Parameter(Mandatory=$true,ParameterSetName='Secure')]
+        [securestring]
+        $Password,
+        [Parameter(Mandatory=$true,ParameterSetName='Plain')]
+        [string]
+        $ClearPassword
+    )
+
+    if($PSCmdlet.ParameterSetName -eq 'Plain')
+    {
+        $Password=ConvertTo-SecureString -String $ClearPassword -AsPlainText -Force
+    }
+    $Credential=New-Object PSCredential($UserName,$Password)
+    return $Credential
+}

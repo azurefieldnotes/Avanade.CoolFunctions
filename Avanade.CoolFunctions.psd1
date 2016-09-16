@@ -12,7 +12,7 @@
 RootModule = 'CoolFunctions'
 
 # Version number of this module.
-ModuleVersion = '1.0.4'
+ModuleVersion = '1.0.5'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -95,6 +95,8 @@ PrivateData = @{
 
     PSData = @{
 
+        Title = 'Handy Functions Module'
+
         # Tags applied to this module. These help with module discovery in online galleries.
         Tags = @('Miscellaneous')
 
@@ -105,7 +107,7 @@ PrivateData = @{
         ProjectUri = 'https://github.com/azurefieldnotes/Avanade.CoolFunctions'
 
         # A URL to an icon representing this module.
-        # IconUri = ''
+        IconUri = 'http://images.all-free-download.com/images/graphiclarge/vector_pocket_knife_47992.jpg'
 
         # ReleaseNotes of this module
         # ReleaseNotes = ''
