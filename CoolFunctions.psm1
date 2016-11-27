@@ -605,3 +605,48 @@ Function New-PSCredential
     $Credential=New-Object PSCredential($UserName,$Password)
     return $Credential
 }
+
+<#
+    .SYNOPSIS
+        Converts a PSCredential to as Basic Authorization string
+    .PARAMETER Credential
+        The PSCredential to be converted
+    .PARAMETER AsHeader
+        Returns in the format of a header (e.g. "Basic [YourHeader]")
+#>
+function ConvertTo-BasicAuth
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [pscredential[]]
+        $Credential,
+        [Parameter(Mandatory=$false)]
+        [Switch]
+        $AsHeader
+    )
+    begin 
+    {
+
+    }
+    
+    process 
+    {
+        foreach ($item in $Credential)
+        {
+            $AuthInfo="$($item.UserName):$($item.GetNetworkCredential().Password)"
+            $BasicCredential = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($AuthInfo))
+            if ($AsHeader.IsPresent) {
+                Write-Output "Basic $BasicCredential"
+            }
+            else {
+                Write-Output $BasicCredential
+            }
+        }
+    }
+    end 
+    {
+
+    }
+}
