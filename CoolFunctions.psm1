@@ -650,3 +650,138 @@ function ConvertTo-BasicAuth
 
     }
 }
+
+<#
+    .SYNOPSIS
+        Returns an XML element as a string or pscustomobject value
+    .PARAMETER Element
+        The XML elements to be converted
+#>
+function ConvertFrom-XmlElement
+{
+    [CmdletBinding(ConfirmImpact='None')]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [System.Xml.XmlElement[]]
+        $Element
+    )
+
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        foreach ($XElement in $Element)
+        {
+            $ChildElements=$XElement.SelectNodes('*')
+            $ChildAttributes=$XElement.SelectNodes('@*')
+            if($ChildElements.Count -gt  0 -or $ChildAttributes.Count -gt 0)
+            {
+                #An object or array
+                $ElementProperties=[ordered]@{}
+                if($ChildAttributes.Count -gt 0)
+                {
+                    foreach ($ChildAttribute in $ChildAttributes)
+                    {
+                        $ElementProperties.Add($ChildAttribute.LocalName,$ChildAttribute.Value)
+                    }
+                }
+                if($ChildElements.Count -gt 0)
+                {
+                    Write-Verbose "$($XElement.LocalName) - Processing Child Elements"
+                    $ChildElementsGroups=$ChildElements|Group-Object -Property LocalName
+                    foreach ($ChildElementsGroup in $ChildElementsGroups)
+                    {
+                        if($ChildElementsGroup.Count -gt 1)
+                        {
+                            $IsArray=$true;
+                            $ChildValue=@()
+                        }
+                        else
+                        {
+                            $IsArray=$false
+                            $ChildValue=$null
+                        }
+                        foreach ($ChildElement in $ChildElementsGroup.Group)
+                        {
+                            if($IsArray)
+                            {
+                                $ChildValue+=(ConvertFrom-XmlElement -Element $ChildElement)
+                            }
+                            else
+                            {
+                                $ChildValue=ConvertFrom-XmlElement -Element $ChildElement                              
+                            }
+                        }
+                        $ElementProperties.Add($ChildElementsGroup.Name,$ChildValue)
+                    }
+                }
+                $ElementValue=New-Object PSObject -Property $ElementProperties
+            }
+            else
+            {
+                #Just a value
+                $ElementValue=$XElement.InnerText
+            }
+            Write-Output $ElementValue
+        }
+    }
+    END
+    {
+    }
+}
+
+<#
+    .SYNOPSIS
+        Returns an XML document as a pscustomobject
+    .PARAMETER Element
+        The XML elements to be converted
+    .PARAMETER Document
+        The XML documents to be converted
+    .PARAMETER Flatten
+        Whether to flatten the top-level object graph
+#>
+function ConvertFrom-Xml
+{
+    [CmdletBinding(DefaultParameterSetName='element',ConfirmImpact='None')]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ParameterSetName='element')]
+        [System.Xml.XmlElement[]]
+        $Element,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ParameterSetName='document')]
+        [System.Xml.XmlDocument[]]
+        $Document,
+        [Parameter(Mandatory=$false,ParameterSetName='element')]
+        [Parameter(Mandatory=$false,ParameterSetName='document')]
+        [Switch]
+        $Flatten        
+    )
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        if($PSCmdlet.ParameterSetName -eq 'document')
+        {
+            $Element=@($Document|Select-Object -ExpandProperty DocumentElement)
+        }
+        foreach ($XElement in $Element)
+        {
+            $ElementValue=ConvertFrom-XmlElement -Element $XElement
+            if ($Flatten.IsPresent) {
+                Write-Output $ElementValue
+            }
+            else {
+                Write-Output (New-Object PSObject -Property @{$XElement.LocalName=$ElementValue})
+            }
+        }
+    }
+    END
+    {
+
+    }
+}
