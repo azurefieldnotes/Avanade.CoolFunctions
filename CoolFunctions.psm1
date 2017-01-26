@@ -785,3 +785,100 @@ function ConvertFrom-Xml
 
     }
 }
+
+Function ConvertFrom-Base64String
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [String[]]
+        $InputObject,
+        [Parameter(Mandatory=$false)]
+        [Switch]
+        $ASCII,
+        [Parameter(Mandatory=$false)]
+        [Switch]
+        $UTF32,
+        [Parameter(Mandatory=$false)]
+        [Switch]
+        $UTF8             
+    )
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        foreach ($item in $InputObject)
+        {
+            $bytes=[System.Convert]::FromBase64String($item)
+            if ($ASCII.IsPresent) {
+                $output=[System.Text.Encoding]::ASCII.GetString($bytes)
+            }
+            elseif ($UTF32.IsPresent) {
+                $output=[System.Text.Encoding]::UTF32.GetString($bytes)
+            }
+            elseif ($UTF8.IsPresent) {
+                $output=[System.Text.Encoding]::UTF8.GetString($bytes)
+            }            
+            else {
+                $output=[System.Text.Encoding]::Unicode.GetString($bytes)
+            }
+            Write-Output $output
+        }
+    }
+    END
+    {
+
+    }
+}
+
+function ConvertTo-Base64String
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [String[]]
+        $InputObject,
+        [Parameter(Mandatory=$false)]
+        [Switch]
+        $ASCII,
+        [Parameter(Mandatory=$false)]
+        [Switch]
+        $UTF32,
+        [Parameter(Mandatory=$false)]
+        [Switch]
+        $UTF8             
+    )
+
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        foreach ($item in $InputObject)
+        {
+            if ($ASCII.IsPresent) {
+                $bytes=[System.Text.Encoding]::ASCII.GetBytes($item)
+            }
+            elseif ($UTF32.IsPresent) {
+                $bytes=[System.Text.Encoding]::UTF32.GetBytes($item)
+            }
+            elseif ($UTF8.IsPresent) {
+                $bytes=[System.Text.Encoding]::UTF8.GetBytes($item)
+            }            
+            else {
+               $bytes=[System.Text.Encoding]::Unicode.GetBytes($item)
+            }
+            $output=[System.Convert]::ToBase64String($bytes)
+            Write-Output $output
+        }
+    }
+    END
+    {
+
+    }
+}
