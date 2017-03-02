@@ -239,20 +239,38 @@ Function Format-XML
     Param
     (
         [Parameter(Position=0,ValueFromPipeLine=$true,Mandatory=$true,ParameterSetName="dom")]
-        [System.Xml.XmlDocument]$Xml,
+        [System.Xml.XmlDocument[]]$Xml,
         [Parameter(Position=0,ValueFromPipeLine=$true,Mandatory=$true,ParameterSetName="string")]
-        [System.String]$XmlString
+        [System.String[]]$XmlString
     )
-    if($PSCmdlet.ParameterSetName -eq "string")
+    BEGIN
     {
-        $Xml=New-Object System.Xml.XmlDocument
-        $Xml.LoadXml($XmlString)
+
     }
-    $sw=New-Object System.IO.StringWriter
-    $writer=New-Object System.Xml.XmlTextWriter($sw)
-    $writer.Formatting = [System.Xml.Formatting]::Indented
-    $Xml.WriteContentTo($writer)
-    return $sw.ToString()
+    PROCESS
+    {
+        if($PSCmdlet.ParameterSetName -eq "string")
+        {
+            foreach($RawXml in $XmlString)
+            {
+                $Doc=New-Object System.Xml.XmlDocument
+                $Doc.LoadXml($RawXml)
+                $Xml+=$Doc
+            }
+        }
+        foreach ($item in $Xml)
+        {
+            $StringWriter=New-Object System.IO.StringWriter
+            $TextWriter=New-Object System.Xml.XmlTextWriter($StringWriter)
+            $TextWriter.Formatting = [System.Xml.Formatting]::Indented
+            $item.WriteContentTo($TextWriter)
+            Write-Output $StringWriter.ToString()         
+        }
+    }
+    END
+    {
+
+    }
 }
 
 #region Network Calcuators
