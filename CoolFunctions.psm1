@@ -151,7 +151,6 @@ Function Copy-WebFile
         [System.Uri[]]$Source,
         [Parameter(Mandatory=$false)]
         [System.String]$DownloadPath=(Join-Path $env:USERPROFILE "Downloads")
-
     )
 
     BEGIN
@@ -444,7 +443,7 @@ Function Copy-FileWithProgress
     (
         [Parameter(Mandatory=$true,ParameterSetName='fileinfo',ValueFromPipeline=$true)]
         [Parameter(Mandatory=$true,ParameterSetName='dirinfo',ValueFromPipeline=$true)]
-        [System.IO.FileInfo]
+        [System.IO.FileInfo[]]
         $From,
         [Parameter(Mandatory=$true,ParameterSetName='fileinfo')]
         [System.IO.FileInfo]
@@ -469,67 +468,78 @@ Function Copy-FileWithProgress
         [uint32]$BufferLength=1MB
     )
 
-    if($PSCmdlet.ParameterSetName -eq 'dirinfo')
+    BEGIN
     {
-        if(-not $ToDirectory.Exists)
-        {
-            New-Item -Path $ToDirectory.Parent.FullName -Name $ToDirectory.Name -ItemType Directory -Force|Out-Null
-        }
-        $To=New-Object System.IO.FileInfo((Join-Path $ToDirectory.FullName $From.Name))
+
     }
-
-    $ffile = $From.OpenRead()
-    $Tofile = $To.OpenWrite()
-    $CurrentProgress=0
-    $FileSizeInMb=$From.Length/1MB
-    $StopWatch=[System.Diagnostics.Stopwatch]::StartNew()
-
-    Write-Verbose "[Copy-FileWithProgress] BEGIN:Copying $From -> $To ..."
-    Write-Progress -Id $ActivityId -Activity $ActivityName `
-        -ParentId $ParentActivityId `
-        -Status "Copying $From -> $To" `
-        -PercentComplete $CurrentProgress
-    try
+    PROCESS
     {
-        [System.Byte[]]$FileBuffer = New-Object System.Byte[] $BufferLength
-        [long]$Total = [long]$ReadCount = 0
-        [long]$TotalCopiedInMb=0
-        do
+        foreach ($item in $From)
         {
-            $ReadCount = $ffile.Read($FileBuffer, 0, $FileBuffer.Length)
-            $Tofile.Write($FileBuffer, 0, $ReadCount)
-            $Total += $ReadCount
-            $TotalCopiedInMb=$Total/1MB
-            $CurrentSpeed=($TotalCopiedInMb/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")
-            if ($Total % 1mb -eq 0)
+            if($PSCmdlet.ParameterSetName -eq 'dirinfo')
             {
-                $CurrentProgress=[int]($TotalCopiedInMb/$FileSizeInMb * 100)
-                Write-Progress -Id $ActivityId `
-                -Activity "$ActivityName %$CurrentProgress"`
-                -ParentId $ParentActivityId `
-                -Status "Copying $From -> $To ($($TotalCopiedInMb.ToString("#.##")) of $($FileSizeInMb.ToString("#.##")) Mb) $($CurrentSpeed) MB/s" `
-                -PercentComplete $CurrentProgress
+                if(-not $ToDirectory.Exists)
+                {
+                    New-Item -Path $ToDirectory.Parent.FullName -Name $ToDirectory.Name -ItemType Directory -Force|Out-Null
+                }
+                $To=New-Object System.IO.FileInfo((Join-Path $ToDirectory.FullName $From.Name))
             }
-        } while ($ReadCount -gt 0)
-        Write-Progress -Id $ActivityId -Activity $ActivityName `
-            -ParentId $ParentActivityId `
-            -Status "Copying $From -> $To" `
-            -PercentComplete $CurrentProgress -Completed
-        $StopWatch.Stop()
-        Write-Verbose "END:Copy $From -> $To Took:$($StopWatch.ElapsedMilliseconds)ms. $($CurrentSpeed) MB/s"
-    }
-    catch [System.IO.IOException],[System.Exception]
-    {
-        Write-Warning "[Copy-FileWithProgress] Error Copying File $($From.FullName) $_"
-    }
-    finally
-    {
-        $ffile.Dispose()
-        $Tofile.Dispose()
-        if($StopWatch -ne $null -and $StopWatch.IsRunning)
-        {
-            $StopWatch.Stop()
+            $ffile = $item.OpenRead()
+            $Tofile = $To.OpenWrite()
+            $CurrentProgress=0
+            $FileSizeInMb=$item.Length/1MB
+            $StopWatch=[System.Diagnostics.Stopwatch]::StartNew()
+            Write-Verbose "[Copy-FileWithProgress] BEGIN:Copying $item -> $To ..."
+            Write-Progress -Id $ActivityId -Activity $ActivityName `
+                -ParentId $ParentActivityId `
+                -Status "Copying $item -> $To" `
+                -PercentComplete $CurrentProgress
+            try
+            {
+                [System.Byte[]]$FileBuffer = New-Object System.Byte[] $BufferLength
+                [long]$Total = [long]$ReadCount = 0
+                [long]$TotalCopiedInMb=0
+                do
+                {
+                    $ReadCount = $ffile.Read($FileBuffer, 0, $FileBuffer.Length)
+                    $Tofile.Write($FileBuffer, 0, $ReadCount)
+                    $Total += $ReadCount
+                    $TotalCopiedInMb=$Total/1MB
+                    $CurrentSpeed=($TotalCopiedInMb/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")
+                    if ($Total % 1mb -eq 0)
+                    {
+                        $CurrentProgress=[int]($TotalCopiedInMb/$FileSizeInMb * 100)
+                        Write-Progress -Id $ActivityId `
+                        -Activity "$ActivityName %$CurrentProgress"`
+                        -ParentId $ParentActivityId `
+                        -Status "Copying $item -> $To ($($TotalCopiedInMb.ToString("#.##")) of $($FileSizeInMb.ToString("#.##")) Mb) $($CurrentSpeed) MB/s" `
+                        -PercentComplete $CurrentProgress
+                    }
+                } while ($ReadCount -gt 0)
+                Write-Progress -Id $ActivityId -Activity $ActivityName `
+                    -ParentId $ParentActivityId `
+                    -PercentComplete $CurrentProgress -Completed
+                $StopWatch.Stop()
+                Write-Verbose "END:Copy $item -> $To Took:$($StopWatch.ElapsedMilliseconds)ms. $($CurrentSpeed) MB/s"
+            }
+            catch [System.IO.IOException],[System.Exception]
+            {
+                Write-Warning "[Copy-FileWithProgress] Error Copying File $($From.FullName) $_"
+            }
+            finally
+            {
+                $ffile.Dispose()
+                $Tofile.Dispose()
+                if($StopWatch -ne $null -and $StopWatch.IsRunning)
+                {
+                    $StopWatch.Stop()
+                }
+            }
         }
+    }
+    END
+    {
+
     }
 }
 
@@ -807,103 +817,13 @@ function ConvertFrom-Xml
     }
 }
 
-Function ConvertFrom-Base64String
-{
-    [CmdletBinding()]
-    param
-    (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [String[]]
-        $InputObject,
-        [Parameter(Mandatory=$false)]
-        [Switch]
-        $ASCII,
-        [Parameter(Mandatory=$false)]
-        [Switch]
-        $UTF32,
-        [Parameter(Mandatory=$false)]
-        [Switch]
-        $UTF8
-    )
-    BEGIN
-    {
-
-    }
-    PROCESS
-    {
-        foreach ($item in $InputObject)
-        {
-            $bytes=[System.Convert]::FromBase64String($item)
-            if ($ASCII.IsPresent) {
-                $output=[System.Text.Encoding]::ASCII.GetString($bytes)
-            }
-            elseif ($UTF32.IsPresent) {
-                $output=[System.Text.Encoding]::UTF32.GetString($bytes)
-            }
-            elseif ($UTF8.IsPresent) {
-                $output=[System.Text.Encoding]::UTF8.GetString($bytes)
-            }
-            else {
-                $output=[System.Text.Encoding]::Unicode.GetString($bytes)
-            }
-            Write-Output $output
-        }
-    }
-    END
-    {
-
-    }
-}
-
-function ConvertTo-Base64String
-{
-    [CmdletBinding()]
-    param
-    (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [String[]]
-        $InputObject,
-        [Parameter(Mandatory=$false)]
-        [Switch]
-        $ASCII,
-        [Parameter(Mandatory=$false)]
-        [Switch]
-        $UTF32,
-        [Parameter(Mandatory=$false)]
-        [Switch]
-        $UTF8
-    )
-
-    BEGIN
-    {
-
-    }
-    PROCESS
-    {
-        foreach ($item in $InputObject)
-        {
-            if ($ASCII.IsPresent) {
-                $bytes=[System.Text.Encoding]::ASCII.GetBytes($item)
-            }
-            elseif ($UTF32.IsPresent) {
-                $bytes=[System.Text.Encoding]::UTF32.GetBytes($item)
-            }
-            elseif ($UTF8.IsPresent) {
-                $bytes=[System.Text.Encoding]::UTF8.GetBytes($item)
-            }
-            else {
-               $bytes=[System.Text.Encoding]::Unicode.GetBytes($item)
-            }
-            $output=[System.Convert]::ToBase64String($bytes)
-            Write-Output $output
-        }
-    }
-    END
-    {
-
-    }
-}
-
+<#
+    .SYNOPSIS
+        Converts a file to a Base64 string
+    .PARAMETER
+    .PARAMETER FilePath
+        The path to the file to be created
+#>
 function Export-Base64StringToFile
 {
     [CmdletBinding()]
@@ -929,6 +849,12 @@ function Export-Base64StringToFile
     Get-Item -Path $FilePath
 }
 
+<#
+    .SYNOPSIS
+        Converts a file to a Base64 string
+    .PARAMETER File
+        The file to be converted
+#>
 function Export-FileToBase64String
 {
     [CmdletBinding(ConfirmImpact='None')]
