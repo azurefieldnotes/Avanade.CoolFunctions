@@ -211,6 +211,8 @@ Function Format-XML
     return $sw.ToString()
 }
 
+#region Network Calcuators
+
 <#
     .SYNOPSIS
         Converts a CIDR or Prefix Length as string to a Subnet Mask
@@ -419,6 +421,8 @@ Function ConvertTo-PrefixLengthFromSubnetMask
     }
 }
 
+#endregion
+
 <#
     .SYNOPSIS
         Copies a file with a progress stream
@@ -483,6 +487,7 @@ Function Copy-FileWithProgress
                     New-Item -Path $ToDirectory.Parent.FullName -Name $ToDirectory.Name -ItemType Directory -Force|Out-Null
                 }
                 $To=New-Object System.IO.FileInfo((Join-Path $ToDirectory.FullName $From.Name))
+                Write-Verbose "[Copy-FileWithProgress] Directory option specified -> $($To.FullName)"
             }
             $ffile = $item.OpenRead()
             $Tofile = $To.OpenWrite()
@@ -543,6 +548,8 @@ Function Copy-FileWithProgress
     }
 }
 
+#region Time Functions
+
 <#
     .SYNOPSIS
         Converts a Unix Timestamp to DateTime
@@ -600,6 +607,8 @@ Function ConvertTo-Iso8601Time
     $Offset=New-Object System.DateTimeOffset($Time)
     return $Offset.ToString('o')
 }
+
+#endregion
 
 <#
     .SYNOPSIS
