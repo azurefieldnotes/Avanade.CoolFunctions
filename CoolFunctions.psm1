@@ -150,33 +150,77 @@ Function Copy-WebFile
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
         [System.Uri[]]$Source,
         [Parameter(Mandatory=$false)]
-        [System.String]$DownloadPath=(Join-Path $env:USERPROFILE "Downloads")
+        [System.String]$DownloadPath=(Join-Path $env:USERPROFILE "Downloads"),
+        [Parameter(Mandatory=$false)]
+        [Int]$BufferLength=1MB,
+        [Parameter(Mandatory=$false)]
+        [Int]$TimeOutInSec=360,
+        [Parameter(Mandatory=$false)]
+        [Int]$ActivityId=90210          
     )
 
     BEGIN
     {
-        $Webclient = New-Object System.Net.WebClient
+
     }
     PROCESS
     {
         foreach ($Uri in $Source)
         {
+            $StopWatch=[System.Diagnostics.Stopwatch]::StartNew()
+            $FileName=Split-Path $Uri.AbsolutePath -Leaf
+            $Destination=New-Object System.IO.FileInfo((Join-Path $DownloadPath $FileName))
+            $Activity="Downloading $Uri to $Destination"
+            Write-Progress -Id $ActivityId -Activity $Activity -Status 'Beginning Download'
+            Write-Verbose "[Copy-WebFile] Downloading $Uri->$Destination"
+            $DownloadedBytes=0
+            $HttpRequest=[System.Net.HttpWebRequest]::Create($Uri)
+            $HttpRequest.TimeOut=$TimeOutInSec*1000
+            [System.Net.HttpWebResponse]$Response=$null
+            [System.IO.Stream]$ResponseStream=[System.IO.Stream]::Null
+            [System.IO.Stream]$TargetStream=$Destination.OpenWrite()
             try
             {
-                $FileName=Split-Path $Uri.AbsolutePath -Leaf
-                $Destination=Join-Path $DownloadPath $FileName
-                Write-Verbose "[Copy-WebFile] Downloading $Uri->$Destination"
-                $Webclient.DownloadFile($Uri,$Destination)
+                $Response=$HttpRequest.GetResponse()
+                Write-Verbose "[Copy-WebFile] Received a response of $($Response.ContentType) size $($Response.ContentLength)"
+                $TotalSize=$Response.ContentLength
+                $TotalSizeInMb=[System.Math]::Floor($TotalSize / 1MB)                
+                $ResponseStream=$Response.GetResponseStream()
+                $ReadBuffer=New-Object Byte[]($BufferLength)
+                $ReadCount=$ResponseStream.Read($ReadBuffer,0,$ReadBuffer.Length)
+                $DownloadedBytes+=$ReadCount
+                while ($ReadCount -gt 0)
+                {
+                    $TargetStream.Write($ReadBuffer,0,$ReadCount)
+                    $ReadCount=$ResponseStream.Read($ReadBuffer,0,$ReadBuffer.Length)
+                    $DownloadedBytes+=$ReadCount
+                    $CurrentlyDownloaded=[System.Math]::Floor($downloadedBytes / 1MB)
+                    $CurrentProgress=[int](($DownloadedBytes / $TotalSize) * 100)
+                    $CurrentSpeed=($DownloadedBytes/1MB/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")
+                    $CurrentStatus = "Downloaded $($CurrentlyDownloaded) MB of $($TotalSizeInMb)MB). ($CurrentSpeed MB/Sec)"
+                    Write-Progress -Id $ActivityId -Activity $Activity -Status $CurrentStatus -PercentComplete $CurrentProgress
+                    #Write-Verbose "[Copy-WebFile] Read: $ReadCount bytes. $CurrentStatus %$($CurrentProgress) completed."
+                }
+                Write-Progress -Id $ActivityId -Activity $Activity -Completed
+                $StopWatch.Stop()
             }
             catch
             {
                 Write-Warning "[Copy-WebFile] Error $Uri->$Destination $_"
             }
+            finally
+            {
+                $TargetStream.Close()
+                if ($Response -ne $null) {
+                    $ResponseStream.Close()
+                    $Response.Dispose()
+                }
+            }
         }
     }
     END
     {
-        $Webclient.Dispose()
+
     }
 }
 
