@@ -703,7 +703,7 @@ Function ConvertFrom-UnixTime
         foreach ($item in $UnixTime)
         {
             $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0)
-            $DateTime=$epoch.AddSeconds($UnixTime)
+            $DateTime=$epoch.AddSeconds($item)
             Write-Output $DateTime
         }
     }
@@ -737,7 +737,7 @@ Function ConvertTo-UnixTime
         foreach ($item in $DateTime)
         {
             $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0);
-            $delta = $DateTime - $epoch;
+            $delta = $item - $epoch;
             $UnixTime=[Math]::Floor($delta.TotalSeconds)
             Write-Output $UnixTime
         }
