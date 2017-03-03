@@ -1,278 +1,4 @@
 
-<#
-    .SYNOPSIS
-        Resize an image using the specified scaling factor
-    .PARAMETER Source
-        The image to be resized
-    .PARAMETER Destination
-        The output path for the resized image
-    .PARAMETER Scale
-        The scaling factor to apply
-#>
-Function Resize-Image
-{
-    [CmdletBinding()]
-    [OutputType([void])]
-	param
-	(
-		[Parameter(ValueFromPipeline=$true,Mandatory=$true,ParameterSetName='io')]
-		[System.IO.FileInfo[]]$Source,
-		[Parameter()]
-        [System.String]$Destination = $env:TEMP,
-		[Parameter()]
-        [System.Double]$Scale = 0.50
-	)
-    BEGIN
-    {
-        $ScaleTransform=New-Object System.Windows.Media.ScaleTransform($Scale,$scale)
-    }
-    PROCESS
-    {
-	    foreach($item in $Source)
-	    {
-            Write-Verbose "[Resize-Image] Resizing image $($item.FullName)->$destinationPath using Scale ScaleTransform $Scale"
-            #Prevent the file from getting locked
-		    $ImageSource=New-Object System.Windows.Media.Imaging.BitmapImage
-            $ImageSource.BeginInit()
-            $ImageSource.UriSource=$item.FullName
-            $ImageSource.CacheOption=[System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
-            $ImageSource.EndInit()
-		    ## Open and resize the image
-		    $image = New-Object System.Windows.Media.Imaging.TransformedBitmap ($ImageSource,$ScaleTransform)
-		    ## Put it on the clipboard (just for fun)
-		    #[System.Windows.Clipboard]::SetImage($image)
-
-		    $destinationPath=Join-Path $Destination $item.Name
-		    ## Write out an image file:
-		    $stream = [System.IO.File]::Open($destinationPath, "OpenOrCreate")
-		    $encoder = New-Object System.Windows.Media.Imaging.$($item.Extension.Substring(1))BitmapEncoder
-		    $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($image))
-		    $encoder.Save($stream)
-            Write-Verbose "[Resize-Image] Saved $destinationPath"
-		    $stream.Dispose()
-	    }
-    }
-    END
-    {
-
-    }
-}
-
-<#
-    .SYNOPSIS
-        Compresses the contents of the specified folder to a Zip file
-    .PARAMETER FileName
-        The path to the file to be created
-    .PARAMETER SourcePath
-        The path of the content to compress
-    .PARAMETER File
-        The file to be created
-    .PARAMETER Source
-        The source of the content
-    .PARAMETER Overwrite
-        Overwrite an existing file
-    .PARAMETER IncludeParent
-        Include the specified folder within the archive
-    .PARAMETER OptimalCompression
-        Use optimal compression
-    .PARAMETER FastestCompression
-        Use fastest compression
-#>
-function Compress-ZipFileFromFolder
-{
-    [CmdletBinding(DefaultParameterSetName='string')]
-    param
-    (
-        [Parameter(Position=0,Mandatory=$true,ParameterSetName='string')]
-        [System.String]$FileName,
-        [Parameter(Position=1,Mandatory=$true,ParameterSetName='string')]
-        [System.String]$SourcePath,
-        [Parameter(Position=0,Mandatory=$true,ParameterSetName='io')]
-        [System.IO.FileInfo]$File,
-        [Parameter(Position=1,Mandatory=$true,ParameterSetName='io')]
-        [System.IO.FileSystemInfo]$Source,
-        [Parameter(Position=2,ParameterSetName='string')]
-        [Parameter(Position=2,ParameterSetName='io')]
-        [Switch]$OverWrite,
-        [Parameter(Position=3,ParameterSetName='string')]
-        [Parameter(Position=3,ParameterSetName='io')]
-        [bool]$IncludeParent=$true,
-        [Parameter(Position=4,ParameterSetName='string')]
-        [Parameter(Position=4,ParameterSetName='io')]
-        [bool]$OptimalCompression=$true,
-        [Parameter(Position=5,ParameterSetName='string')]
-        [Parameter(Position=5,ParameterSetName='io')]
-        [Switch]$FastestCompression
-    )
-    $Parent=$false
-    if($IncludeParent)
-    {
-        Write-Debug "[Compress-ZipFileFromFolder] -IncludeParent Switch Specified"
-        $Parent=$true
-    }
-    if($PSCmdlet.ParameterSetName -eq 'io')
-    {
-        $FileName=$File.FullName
-        $SourcePath=$Source.FullName
-    }
-    if($OverWrite)
-    {
-        Write-Debug "[Compress-ZipFileFromFolder] -Overwrite Switch Specified"
-        if(Test-Path -Path $FileName)
-        {
-            Write-Warning "[Compress-ZipFileFromFolder] Deleting $FileName"
-            Remove-Item -Path $FileName -Force
-        }
-    }
-
-   if($OptimalCompression)
-   {
-        Write-Debug "[Compress-ZipFileFromFolder] -Overwrite Switch Specified"
-        $CompressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
-   }
-   [System.IO.Compression.ZipFile]::CreateFromDirectory($SourcePath,$FileName, $CompressionLevel, $Parent)
-   Write-Verbose "[Compress-ZipFileFromFolder] Created Zip File $FileName"
-}
-
-<#
-    .SYNOPSIS
-        Downloads a file from a URL to the specified location
-    .PARAMETER Source
-        The uri of the item to download
-    .PARAMETER DownloadPath
-        The path of the downloaded file
-#>
-Function Copy-WebFile
-{
-    [CmdletBinding(ConfirmImpact='None')]
-    param
-    (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [System.Uri[]]$Source,
-        [Parameter(Mandatory=$false)]
-        [System.String]$DownloadPath=(Join-Path $env:USERPROFILE "Downloads"),
-        [Parameter(Mandatory=$false)]
-        [Int]$BufferLength=1MB,
-        [Parameter(Mandatory=$false)]
-        [Int]$TimeOutInSec=360,
-        [Parameter(Mandatory=$false)]
-        [Int]$ActivityId=90210          
-    )
-
-    BEGIN
-    {
-
-    }
-    PROCESS
-    {
-        foreach ($Uri in $Source)
-        {
-            $StopWatch=[System.Diagnostics.Stopwatch]::StartNew()
-            $FileName=Split-Path $Uri.AbsolutePath -Leaf
-            $Destination=New-Object System.IO.FileInfo((Join-Path $DownloadPath $FileName))
-            $Activity="Downloading $Uri to $Destination"
-            Write-Progress -Id $ActivityId -Activity $Activity -Status 'Beginning Download'
-            Write-Verbose "[Copy-WebFile] Downloading $Uri->$Destination"
-            $DownloadedBytes=0
-            $HttpRequest=[System.Net.HttpWebRequest]::Create($Uri)
-            $HttpRequest.TimeOut=$TimeOutInSec*1000
-            [System.Net.HttpWebResponse]$Response=$null
-            [System.IO.Stream]$ResponseStream=[System.IO.Stream]::Null
-            [System.IO.Stream]$TargetStream=$Destination.OpenWrite()
-            try
-            {
-                $Response=$HttpRequest.GetResponse()
-                Write-Verbose "[Copy-WebFile] Received a response of $($Response.ContentType) size $($Response.ContentLength)"
-                $TotalSize=$Response.ContentLength
-                $TotalSizeInMb=[System.Math]::Floor($TotalSize / 1MB)                
-                $ResponseStream=$Response.GetResponseStream()
-                $ReadBuffer=New-Object Byte[]($BufferLength)
-                $ReadCount=$ResponseStream.Read($ReadBuffer,0,$ReadBuffer.Length)
-                $DownloadedBytes+=$ReadCount
-                while ($ReadCount -gt 0)
-                {
-                    $TargetStream.Write($ReadBuffer,0,$ReadCount)
-                    $ReadCount=$ResponseStream.Read($ReadBuffer,0,$ReadBuffer.Length)
-                    $DownloadedBytes+=$ReadCount
-                    $CurrentlyDownloaded=[System.Math]::Floor($downloadedBytes / 1MB)
-                    $CurrentProgress=[int](($DownloadedBytes / $TotalSize) * 100)
-                    $CurrentSpeed=($DownloadedBytes/1MB/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")
-                    $CurrentStatus = "Downloaded $($CurrentlyDownloaded) MB of $($TotalSizeInMb)MB). ($CurrentSpeed MB/Sec)"
-                    Write-Progress -Id $ActivityId -Activity $Activity -Status $CurrentStatus -PercentComplete $CurrentProgress
-                    #Write-Verbose "[Copy-WebFile] Read: $ReadCount bytes. $CurrentStatus %$($CurrentProgress) completed."
-                }
-                Write-Progress -Id $ActivityId -Activity $Activity -Completed
-                $StopWatch.Stop()
-            }
-            catch
-            {
-                Write-Warning "[Copy-WebFile] Error $Uri->$Destination $_"
-            }
-            finally
-            {
-                $TargetStream.Close()
-                if ($Response -ne $null) {
-                    $ResponseStream.Close()
-                    $Response.Dispose()
-                }
-            }
-        }
-    }
-    END
-    {
-
-    }
-}
-
-<#
-    .SYNOPSIS
-        Formats and indents an XmlDocument to a string
-    .PARAMETER Xml
-        An XmlDocument to be formatted
-    .PARAMETER XmlString
-        A valid string of an XML document
-
-#>
-Function Format-XML
-{
-    [CmdletBinding(DefaultParameterSetName="dom")]
-    Param
-    (
-        [Parameter(Position=0,ValueFromPipeLine=$true,Mandatory=$true,ParameterSetName="dom")]
-        [System.Xml.XmlDocument[]]$Xml,
-        [Parameter(Position=0,ValueFromPipeLine=$true,Mandatory=$true,ParameterSetName="string")]
-        [System.String[]]$XmlString
-    )
-    BEGIN
-    {
-
-    }
-    PROCESS
-    {
-        if($PSCmdlet.ParameterSetName -eq "string")
-        {
-            foreach($RawXml in $XmlString)
-            {
-                $Doc=New-Object System.Xml.XmlDocument
-                $Doc.LoadXml($RawXml)
-                $Xml+=$Doc
-            }
-        }
-        foreach ($item in $Xml)
-        {
-            $StringWriter=New-Object System.IO.StringWriter
-            $TextWriter=New-Object System.Xml.XmlTextWriter($StringWriter)
-            $TextWriter.Formatting = [System.Xml.Formatting]::Indented
-            $item.WriteContentTo($TextWriter)
-            Write-Output $StringWriter.ToString()         
-        }
-    }
-    END
-    {
-
-    }
-}
-
 #region Network Calcuators
 
 <#
@@ -552,6 +278,174 @@ Function ConvertTo-PrefixLengthFromSubnetMask
 
 #endregion
 
+#region File Copy/Compress Methods
+
+<#
+    .SYNOPSIS
+        Compresses the contents of the specified folder to a Zip file
+    .PARAMETER FileName
+        The path to the file to be created
+    .PARAMETER SourcePath
+        The path of the content to compress
+    .PARAMETER File
+        The file to be created
+    .PARAMETER Source
+        The source of the content
+    .PARAMETER Overwrite
+        Overwrite an existing file
+    .PARAMETER IncludeParent
+        Include the specified folder within the archive
+    .PARAMETER OptimalCompression
+        Use optimal compression
+    .PARAMETER FastestCompression
+        Use fastest compression
+#>
+function Compress-ZipFileFromFolder
+{
+    [CmdletBinding(DefaultParameterSetName='string')]
+    param
+    (
+        [Parameter(Position=0,Mandatory=$true,ParameterSetName='string')]
+        [System.String]$FileName,
+        [Parameter(Position=1,Mandatory=$true,ParameterSetName='string')]
+        [System.String]$SourcePath,
+        [Parameter(Position=0,Mandatory=$true,ParameterSetName='io')]
+        [System.IO.FileInfo]$File,
+        [Parameter(Position=1,Mandatory=$true,ParameterSetName='io')]
+        [System.IO.FileSystemInfo]$Source,
+        [Parameter(Position=2,ParameterSetName='string')]
+        [Parameter(Position=2,ParameterSetName='io')]
+        [Switch]$OverWrite,
+        [Parameter(Position=3,ParameterSetName='string')]
+        [Parameter(Position=3,ParameterSetName='io')]
+        [bool]$IncludeParent=$true,
+        [Parameter(Position=4,ParameterSetName='string')]
+        [Parameter(Position=4,ParameterSetName='io')]
+        [bool]$OptimalCompression=$true,
+        [Parameter(Position=5,ParameterSetName='string')]
+        [Parameter(Position=5,ParameterSetName='io')]
+        [Switch]$FastestCompression
+    )
+    $Parent=$false
+    if($IncludeParent)
+    {
+        Write-Debug "[Compress-ZipFileFromFolder] -IncludeParent Switch Specified"
+        $Parent=$true
+    }
+    if($PSCmdlet.ParameterSetName -eq 'io')
+    {
+        $FileName=$File.FullName
+        $SourcePath=$Source.FullName
+    }
+    if($OverWrite)
+    {
+        Write-Debug "[Compress-ZipFileFromFolder] -Overwrite Switch Specified"
+        if(Test-Path -Path $FileName)
+        {
+            Write-Warning "[Compress-ZipFileFromFolder] Deleting $FileName"
+            Remove-Item -Path $FileName -Force
+        }
+    }
+
+   if($OptimalCompression)
+   {
+        Write-Debug "[Compress-ZipFileFromFolder] -Overwrite Switch Specified"
+        $CompressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
+   }
+   [System.IO.Compression.ZipFile]::CreateFromDirectory($SourcePath,$FileName, $CompressionLevel, $Parent)
+   Write-Verbose "[Compress-ZipFileFromFolder] Created Zip File $FileName"
+}
+
+<#
+    .SYNOPSIS
+        Downloads a file from a URL to the specified location
+    .PARAMETER Source
+        The uri of the item to download
+    .PARAMETER DownloadPath
+        The path of the downloaded file
+#>
+Function Copy-WebFile
+{
+    [CmdletBinding(ConfirmImpact='None')]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [System.Uri[]]$Source,
+        [Parameter(Mandatory=$false)]
+        [System.String]$DownloadPath=(Join-Path $env:USERPROFILE "Downloads"),
+        [Parameter(Mandatory=$false)]
+        [Int]$BufferLength=1MB,
+        [Parameter(Mandatory=$false)]
+        [Int]$TimeOutInSec=360,
+        [Parameter(Mandatory=$false)]
+        [Int]$ActivityId=90210          
+    )
+
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        foreach ($Uri in $Source)
+        {
+            $StopWatch=[System.Diagnostics.Stopwatch]::StartNew()
+            $FileName=Split-Path $Uri.AbsolutePath -Leaf
+            $Destination=New-Object System.IO.FileInfo((Join-Path $DownloadPath $FileName))
+            $Activity="Downloading $Uri to $Destination"
+            Write-Progress -Id $ActivityId -Activity $Activity -Status 'Beginning Download'
+            Write-Verbose "[Copy-WebFile] Downloading $Uri->$Destination"
+            $DownloadedBytes=0
+            $HttpRequest=[System.Net.HttpWebRequest]::Create($Uri)
+            $HttpRequest.TimeOut=$TimeOutInSec*1000
+            [System.Net.HttpWebResponse]$Response=$null
+            [System.IO.Stream]$ResponseStream=[System.IO.Stream]::Null
+            [System.IO.Stream]$TargetStream=$Destination.OpenWrite()
+            try
+            {
+                $Response=$HttpRequest.GetResponse()
+                Write-Verbose "[Copy-WebFile] Received a response of $($Response.ContentType) size $($Response.ContentLength)"
+                $TotalSize=$Response.ContentLength
+                $TotalSizeInMb=[System.Math]::Floor($TotalSize / 1MB)                
+                $ResponseStream=$Response.GetResponseStream()
+                $ReadBuffer=New-Object Byte[]($BufferLength)
+                $ReadCount=$ResponseStream.Read($ReadBuffer,0,$ReadBuffer.Length)
+                $DownloadedBytes+=$ReadCount
+                while ($ReadCount -gt 0)
+                {
+                    $TargetStream.Write($ReadBuffer,0,$ReadCount)
+                    $ReadCount=$ResponseStream.Read($ReadBuffer,0,$ReadBuffer.Length)
+                    $DownloadedBytes+=$ReadCount
+                    $CurrentlyDownloaded=[System.Math]::Floor($downloadedBytes / 1MB)
+                    $CurrentProgress=[int](($DownloadedBytes / $TotalSize) * 100)
+                    $CurrentSpeed=($DownloadedBytes/1MB/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")
+                    $CurrentStatus = "Downloaded $($CurrentlyDownloaded) MB of $($TotalSizeInMb)MB). ($CurrentSpeed MB/Sec)"
+                    Write-Progress -Id $ActivityId -Activity $Activity -Status $CurrentStatus -PercentComplete $CurrentProgress
+                    #Write-Verbose "[Copy-WebFile] Read: $ReadCount bytes. $CurrentStatus %$($CurrentProgress) completed."
+                }
+                Write-Progress -Id $ActivityId -Activity $Activity -Completed
+                $StopWatch.Stop()
+            }
+            catch
+            {
+                Write-Warning "[Copy-WebFile] Error $Uri->$Destination $_"
+            }
+            finally
+            {
+                $TargetStream.Close()
+                if ($Response -ne $null) {
+                    $ResponseStream.Close()
+                    $Response.Dispose()
+                }
+            }
+        }
+    }
+    END
+    {
+
+    }
+}
+
 <#
     .SYNOPSIS
         Copies a file with a progress stream
@@ -677,6 +571,81 @@ Function Copy-FileWithProgress
     }
 }
 
+<#
+    .SYNOPSIS
+        Converts a file to a Base64 string
+    .PARAMETER
+    .PARAMETER FilePath
+        The path to the file to be created
+#>
+function Export-Base64StringToFile
+{
+    [CmdletBinding()]
+    [OutputType([System.IO.FileInfo])]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [String]
+        $Base64String,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]
+        [String]
+        $FilePath,
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true)]
+        [Switch]
+        $Force
+    )
+
+    if ((Test-Path -Path $FilePath) -and $Force.IsPresent -eq $false) {
+        throw "$FilePath already exists! Specify -Force to Overwrite"
+    }
+    $ContentBytes=[Convert]::FromBase64String($Base64String)
+    $ContentBytes|Set-Content -Path $FilePath -Encoding Byte -Force:$Force.IsPresent
+    Get-Item -Path $FilePath
+}
+
+<#
+    .SYNOPSIS
+        Converts a file to a Base64 string
+    .PARAMETER File
+        The file to be converted
+#>
+function Export-FileToBase64String
+{
+    [CmdletBinding(ConfirmImpact='None')]
+    [OutputType([System.String])]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [System.IO.FileInfo[]]
+        $File
+    )
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        foreach ($item in $File)
+        {
+            try
+            {
+                $FileContentBytes=Get-Content -Path $item.FullName -Encoding Byte -ErrorAction Stop
+                $FileAsString=[Convert]::ToBase64String($FileContentBytes)
+                Write-Output $FileAsString
+            }
+            catch {
+                Write-Warning "[Export-FileToBase64String] Failed gathering Base64 string for $($item.FullName) $_"
+            }
+        }
+    }
+    END
+    {
+
+    }
+}
+
+#endregion
+
 #region Time Functions
 
 <#
@@ -785,6 +754,114 @@ Function ConvertTo-Iso8601Time
 
 <#
     .SYNOPSIS
+        Resize an image using the specified scaling factor
+    .PARAMETER Source
+        The image to be resized
+    .PARAMETER Destination
+        The output path for the resized image
+    .PARAMETER Scale
+        The scaling factor to apply
+#>
+Function Resize-Image
+{
+    [CmdletBinding()]
+    [OutputType([void])]
+	param
+	(
+		[Parameter(ValueFromPipeline=$true,Mandatory=$true,ParameterSetName='io')]
+		[System.IO.FileInfo[]]$Source,
+		[Parameter()]
+        [System.String]$Destination = $env:TEMP,
+		[Parameter()]
+        [System.Double]$Scale = 0.50
+	)
+    BEGIN
+    {
+        $ScaleTransform=New-Object System.Windows.Media.ScaleTransform($Scale,$Scale)
+    }
+    PROCESS
+    {
+	    foreach($item in $Source)
+	    {
+            Write-Verbose "[Resize-Image] Resizing image $($item.FullName)->$destinationPath using Scale ScaleTransform $Scale"
+            #Prevent the file from getting locked
+		    $ImageSource=New-Object System.Windows.Media.Imaging.BitmapImage
+            $ImageSource.BeginInit()
+            $ImageSource.UriSource=$item.FullName
+            $ImageSource.CacheOption=[System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+            $ImageSource.EndInit()
+		    ## Open and resize the image
+		    $image = New-Object System.Windows.Media.Imaging.TransformedBitmap ($ImageSource,$ScaleTransform)
+		    ## Put it on the clipboard (just for fun)
+		    #[System.Windows.Clipboard]::SetImage($image)
+
+		    $destinationPath=Join-Path $Destination $item.Name
+		    ## Write out an image file:
+		    $stream = [System.IO.File]::Open($destinationPath, "OpenOrCreate")
+		    $encoder = New-Object System.Windows.Media.Imaging.$($item.Extension.Substring(1))BitmapEncoder
+		    $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($image))
+		    $encoder.Save($stream)
+            Write-Verbose "[Resize-Image] Saved $destinationPath"
+		    $stream.Dispose()
+	    }
+    }
+    END
+    {
+
+    }
+}
+
+<#
+    .SYNOPSIS
+        Formats and indents an XmlDocument to a string
+    .PARAMETER Xml
+        An XmlDocument to be formatted
+    .PARAMETER XmlString
+        A valid string of an XML document
+
+#>
+Function Format-XML
+{
+    [CmdletBinding(DefaultParameterSetName="dom")]
+    Param
+    (
+        [Parameter(Position=0,ValueFromPipeLine=$true,Mandatory=$true,ParameterSetName="dom")]
+        [System.Xml.XmlDocument[]]$Xml,
+        [Parameter(Position=0,ValueFromPipeLine=$true,Mandatory=$true,ParameterSetName="string")]
+        [System.String[]]$XmlString
+    )
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        if($PSCmdlet.ParameterSetName -eq "string")
+        {
+            foreach($RawXml in $XmlString)
+            {
+                $Doc=New-Object System.Xml.XmlDocument
+                $Doc.LoadXml($RawXml)
+                $Xml+=$Doc
+            }
+        }
+        foreach ($item in $Xml)
+        {
+            $StringWriter=New-Object System.IO.StringWriter
+            $TextWriter=New-Object System.Xml.XmlTextWriter($StringWriter)
+            $TextWriter.Formatting = [System.Xml.Formatting]::Indented
+            $item.WriteContentTo($TextWriter)
+            Write-Output $StringWriter.ToString()         
+        }
+    }
+    END
+    {
+
+    }
+}
+
+<#
+    .SYNOPSIS
         Simple constructor wrapper for PSCredential
     .PARAMETER UserName
         The UserName
@@ -869,6 +946,8 @@ function ConvertTo-BasicAuth
         Returns an XML element as a string or pscustomobject value
     .PARAMETER Element
         The XML elements to be converted
+    .REMARKS
+        This should go away
 #>
 function ConvertFrom-XmlElement
 {
@@ -955,6 +1034,8 @@ function ConvertFrom-XmlElement
         The XML documents to be converted
     .PARAMETER Flatten
         Whether to flatten the top-level object graph
+    .REMARKS
+        This should go away
 #>
 function ConvertFrom-Xml
 {
@@ -990,79 +1071,6 @@ function ConvertFrom-Xml
             }
             else {
                 Write-Output (New-Object PSObject -Property @{$XElement.LocalName=$ElementValue})
-            }
-        }
-    }
-    END
-    {
-
-    }
-}
-
-<#
-    .SYNOPSIS
-        Converts a file to a Base64 string
-    .PARAMETER
-    .PARAMETER FilePath
-        The path to the file to be created
-#>
-function Export-Base64StringToFile
-{
-    [CmdletBinding()]
-    [OutputType([System.IO.FileInfo])]
-    param
-    (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
-        [String]
-        $Base64String,
-        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]
-        [String]
-        $FilePath,
-        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true)]
-        [Switch]
-        $Force
-    )
-
-    if ((Test-Path -Path $FilePath) -and $Force.IsPresent -eq $false) {
-        throw "$FilePath already exists! Specify -Force to Overwrite"
-    }
-    $ContentBytes=[Convert]::FromBase64String($Base64String)
-    $ContentBytes|Set-Content -Path $FilePath -Encoding Byte -Force:$Force.IsPresent
-    Get-Item -Path $FilePath
-}
-
-<#
-    .SYNOPSIS
-        Converts a file to a Base64 string
-    .PARAMETER File
-        The file to be converted
-#>
-function Export-FileToBase64String
-{
-    [CmdletBinding(ConfirmImpact='None')]
-    [OutputType([System.String])]
-    param
-    (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [System.IO.FileInfo[]]
-        $File
-    )
-    BEGIN
-    {
-
-    }
-    PROCESS
-    {
-        foreach ($item in $File)
-        {
-            try
-            {
-                $FileContentBytes=Get-Content -Path $item.FullName -Encoding Byte -ErrorAction Stop
-                $FileAsString=[Convert]::ToBase64String($FileContentBytes)
-                Write-Output $FileAsString
-            }
-            catch {
-                Write-Warning "[Export-FileToBase64String] Failed gathering Base64 string for $($item.FullName) $_"
             }
         }
     }
