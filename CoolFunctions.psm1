@@ -289,47 +289,61 @@ Function ConvertTo-SubnetMaskFromCIDR
     param
     (
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [String]
+        [String[]]
         $CIDR
     )
-    $NetMask="0.0.0.0"
-    $CIDRLength=[System.Convert]::ToInt32(($CIDR.Split('/')|Select-Object -Last 1).Trim())
-    Write-Debug "Converting Prefix Length $CIDRLength from input $CIDR"
-    switch ($CIDRLength) {
-        {$_ -gt 0 -and $_ -lt 8}
-        {
-            $binary="$( "1" * $CIDRLength)".PadRight(8,"0")
-            $o1 = [System.Convert]::ToInt32($binary.Trim(),2)
-            $NetMask = "$o1.0.0.0"
-            break
-        }
-        8 {$NetMask="255.0.0.0"}
-        {$_ -gt 8 -and $_ -lt 16}
-        {
-            $binary="$( "1" * ($CIDRLength - 8))".PadRight(8,"0")
-            $o2 = [System.Convert]::ToInt32($binary.Trim(),2)
-            $NetMask = "255.$o2.0.0"
-            break
-        }
-        16 {$NetMask="255.255.0.0"}
-        {$_ -gt 16 -and $_ -lt 24}
-        {
-            $binary="$("1" * ($CIDRLength - 16))".PadRight(8,"0")
-            $o3 = [System.Convert]::ToInt32($binary.Trim(),2)
-            $NetMask = "255.255.$o3.0"
-            break
-        }
-        24 {$NetMask="255.255.255.0"}
-        {$_ -gt 24 -and $_ -lt 32}
-        {
-            $binary="$("1" * ($CIDRLength - 24))".PadRight(8,"0")
-            $o4 = [convert]::ToInt32($binary.Trim(),2)
-            $NetMask= "255.255.255.$o4"
-            break
-        }
-        32 {$NetMask="255.255.255.255"}
+    BEGIN
+    {
+
     }
-    return $NetMask
+    PROCESS
+    {
+        foreach ($IpRange in $CIDR)
+        {
+            $NetMask="0.0.0.0"
+            $CIDRLength=[System.Convert]::ToInt32(($IpRange.Split('/')|Select-Object -Last 1).Trim())
+            Write-Debug "[ConvertTo-SubnetMaskFromCIDR] Converting Prefix Length $CIDRLength from input $IpRange"
+            switch ($CIDRLength) {
+                {$_ -gt 0 -and $_ -lt 8}
+                {
+                    $binary="$( "1" * $CIDRLength)".PadRight(8,"0")
+                    $o1 = [System.Convert]::ToInt32($binary.Trim(),2)
+                    $NetMask = "$o1.0.0.0"
+                    break
+                }
+                8 {$NetMask="255.0.0.0"}
+                {$_ -gt 8 -and $_ -lt 16}
+                {
+                    $binary="$( "1" * ($CIDRLength - 8))".PadRight(8,"0")
+                    $o2 = [System.Convert]::ToInt32($binary.Trim(),2)
+                    $NetMask = "255.$o2.0.0"
+                    break
+                }
+                16 {$NetMask="255.255.0.0"}
+                {$_ -gt 16 -and $_ -lt 24}
+                {
+                    $binary="$("1" * ($CIDRLength - 16))".PadRight(8,"0")
+                    $o3 = [System.Convert]::ToInt32($binary.Trim(),2)
+                    $NetMask = "255.255.$o3.0"
+                    break
+                }
+                24 {$NetMask="255.255.255.0"}
+                {$_ -gt 24 -and $_ -lt 32}
+                {
+                    $binary="$("1" * ($CIDRLength - 24))".PadRight(8,"0")
+                    $o4 = [convert]::ToInt32($binary.Trim(),2)
+                    $NetMask= "255.255.255.$o4"
+                    break
+                }
+                32 {$NetMask="255.255.255.255"}
+            }
+            Write-Output $NetMask            
+        }
+    }
+    END
+    {
+        
+    }
 }
 
 <#
@@ -345,28 +359,41 @@ Function ConvertTo-NetworkAddressFromCIDR
     param
     (
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [String]
+        [String[]]
         $CIDR
     )
+    BEGIN
+    {
 
-    $IpString=$CIDR.Split("/")[0]
-    $PrefixLength=[System.Convert]::ToInt32($CIDR.Split("/")[1])
-    [System.Net.IPAddress]$IpAddress=$null
-    if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
-    {
-        $AddressBytes=$IpAddress.GetAddressBytes()
-        [Array]::Reverse($AddressBytes)
-        $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
-        #Bitwise AND the NetMask and the IP
-        $NetMask=[Convert]::ToUInt32(("1" * $PrefixLength).PadRight(32, "0"), 2)
-        $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -band $NetMask))
-        [System.Array]::Reverse($NetAddressBytes)
-        $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
-        return $NetAddressAsIp.IPAddressToString
     }
-    else
+    PROCESS
     {
-        throw "Unable to parse the IP Address $IpString"
+        foreach ($IpRange in $CIDR)
+        {
+            $IpString=$IpRange.Split("/")|Select-Object -First 1
+            $PrefixLength=[System.Convert]::ToInt32(($IpRange.Split("/")|Select-Object -Last 1))
+            [System.Net.IPAddress]$IpAddress=$null
+            if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
+            {
+                $AddressBytes=$IpAddress.GetAddressBytes()
+                [Array]::Reverse($AddressBytes)
+                $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
+                #Bitwise AND the NetMask and the IP
+                $NetMask=[Convert]::ToUInt32(("1" * $PrefixLength).PadRight(32, "0"), 2)
+                $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -band $NetMask))
+                [System.Array]::Reverse($NetAddressBytes)
+                $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+                Write-Output $NetAddressAsIp.IPAddressToString
+            }
+            else
+            {
+                throw "Unable to parse the IP Address from $IpRange"
+            }
+        }
+    }
+    END
+    {
+
     }
 }
 
@@ -383,28 +410,42 @@ Function ConvertTo-BroadcastAddressFromCIDR
     param
     (
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [String]
+        [String[]]
         $CIDR
     )
+    BEGIN
+    {
 
-    $IpString=$CIDR.Split("/")[0]
-    $PrefixLength=[System.Convert]::ToInt32($CIDR.Split("/")[1])
-    [System.Net.IPAddress]$IpAddress=$null
-    if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
-    {
-        $AddressBytes=$IpAddress.GetAddressBytes()
-        [Array]::Reverse($AddressBytes)
-        $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
-        #Bitwise OR the Host Mask and the IP
-        $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
-        $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -bor $HostMask))
-        [System.Array]::Reverse($NetAddressBytes)
-        $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
-        return $NetAddressAsIp.IPAddressToString
     }
-    else
+    PROCESS
     {
-        throw "Unable to parse the IP Address $IpString"
+        
+        foreach ($IpRange in $CIDR)
+        {
+            $IpString=$IpRange.Split("/")|Select-Object -First 1
+            $PrefixLength=[System.Convert]::ToInt32(($IpRange.Split("/")|Select-Object -Last 1))
+            [System.Net.IPAddress]$IpAddress=$null
+            if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
+            {
+                $AddressBytes=$IpAddress.GetAddressBytes()
+                [Array]::Reverse($AddressBytes)
+                $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
+                #Bitwise OR the Host Mask and the IP
+                $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
+                $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -bor $HostMask))
+                [System.Array]::Reverse($NetAddressBytes)
+                $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+                Write-Output $NetAddressAsIp.IPAddressToString
+            }
+            else
+            {
+                throw "Unable to parse the IP Address from $IpRange"
+            }  
+        }
+    }
+    END
+    {
+
     }
 }
 
@@ -421,29 +462,42 @@ Function ConvertTo-NetworkRangeEndFromCIDR
     param
     (
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [String]
+        [String[]]
         $CIDR
     )
+    BEGIN
+    {
 
-    $IpString=$CIDR.Split("/")[0]
-    $PrefixLength=[System.Convert]::ToInt32($CIDR.Split("/")[1])
-    [System.Net.IPAddress]$IpAddress=$null
-    if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
-    {
-        $AddressBytes=$IpAddress.GetAddressBytes()
-        [Array]::Reverse($AddressBytes)
-        $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
-        #Bitwise OR the Host Mask and the IP
-        $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
-        $LastAddress=($IpAsUint -bor $HostMask)-1
-        $NetAddressBytes=[BitConverter]::GetBytes($LastAddress)
-        [System.Array]::Reverse($NetAddressBytes)
-        $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
-        return $NetAddressAsIp.IPAddressToString
     }
-    else
+    PROCESS
     {
-        throw "Unable to parse the IP Address $IpString"
+        foreach ($IpRange in $CIDR)
+        {
+                $IpString=$IpRange.Split("/")|Select-Object -First 1
+                $PrefixLength=[System.Convert]::ToInt32(($IpRange.Split("/")|Select-Object -Last 1))
+                [System.Net.IPAddress]$IpAddress=$null
+                if([System.Net.IPAddress]::TryParse($IpString,[ref]$IpAddress))
+                {
+                    $AddressBytes=$IpAddress.GetAddressBytes()
+                    [Array]::Reverse($AddressBytes)
+                    $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
+                    #Bitwise OR the Host Mask and the IP
+                    $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
+                    $LastAddress=($IpAsUint -bor $HostMask)-1
+                    $NetAddressBytes=[BitConverter]::GetBytes($LastAddress)
+                    [System.Array]::Reverse($NetAddressBytes)
+                    $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+                    Write-Output $NetAddressAsIp.IPAddressToString
+                }
+                else
+                {
+                    throw "Unable to parse the IP Address from $IpRange"
+                }     
+        }
+    }
+    END
+    {
+
     }
 }
 
@@ -462,24 +516,37 @@ Function ConvertTo-PrefixLengthFromSubnetMask
         # Subnet Mask
         [ValidatePattern("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")]
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [string]
+        [string[]]
         $SubnetMask
     )
+    BEGIN
+    {
 
-    [System.Net.IPAddress]$SubnetAsIp=$null
-    if([System.Net.IPAddress]::TryParse($SubnetMask,[ref]$SubnetAsIp))
-    {
-        $MaskString=[String]::Empty
-        foreach ($AddressByte in $SubnetAsIp.GetAddressBytes())
-        {
-            $MaskString+=[Convert]::ToString($AddressByte,2)
-        }
-        $MaskString=$MaskString -Replace '[\s0]'
-        return $MaskString.Length
     }
-    else
+    PROCESS
     {
-        throw "Unable to parse the Subnet Mask $SubnetMask!"
+        foreach ($NetMask in $SubnetMask)
+        {
+            [System.Net.IPAddress]$SubnetAsIp=$null
+            if([System.Net.IPAddress]::TryParse($NetMask,[ref]$SubnetAsIp))
+            {
+                $MaskString=[String]::Empty
+                foreach ($AddressByte in $SubnetAsIp.GetAddressBytes())
+                {
+                    $MaskString+=[Convert]::ToString($AddressByte,2)
+                }
+                $MaskString=$MaskString -Replace '[\s0]'
+                Write-Output $MaskString.Length
+            }
+            else
+            {
+                throw "Unable to parse the Subnet Mask $$NetMask"
+            }
+        }
+    }
+    END
+    {
+
     }
 }
 
@@ -623,12 +690,27 @@ Function ConvertFrom-UnixTime
     [OutputType([System.DateTime])]
     param
     (
-        [Parameter(Mandatory=$true)]
-        [double]
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [double[]]
         $UnixTime
     )
-    $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0)
-    return $epoch.AddSeconds($UnixTime)
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        foreach ($item in $UnixTime)
+        {
+            $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0)
+            $DateTime=$epoch.AddSeconds($UnixTime)
+            Write-Output $DateTime
+        }
+    }
+    END
+    {
+
+    }
 }
 
 <#
@@ -642,13 +724,28 @@ Function ConvertTo-UnixTime
     [OutputType([System.Double])]
     param
     (
-        [Parameter(Mandatory=$true)]
-        [datetime]
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [datetime[]]
         $DateTime
     )
-    $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0);
-    $delta = $DateTime - $epoch;
-    return [Math]::Floor($delta.TotalSeconds);
+    BEGIN
+    {
+
+    }
+    PROCESS
+    {
+        foreach ($item in $DateTime)
+        {
+            $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, 0);
+            $delta = $DateTime - $epoch;
+            $UnixTime=[Math]::Floor($delta.TotalSeconds)
+            Write-Output $UnixTime
+        }
+    }
+    END
+    {
+
+    }
 }
 
 <#
@@ -662,12 +759,26 @@ Function ConvertTo-Iso8601Time
     param
     (
         [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [System.DateTime]
+        [System.DateTime[]]
         $Time
     )
+    BEGIN
+    {
 
-    $Offset=New-Object System.DateTimeOffset($Time)
-    return $Offset.ToString('o')
+    }
+    PROCESS
+    {
+        foreach ($item in $Time)
+        {
+            $Offset=New-Object System.DateTimeOffset($item)
+            $IsoTime=$Offset.ToString('o')
+            Write-Output $IsoTime
+        }
+    }
+    END
+    {
+
+    }
 }
 
 #endregion
