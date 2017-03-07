@@ -870,31 +870,31 @@ Function Format-XML
     .PARAMETER ClearPassword
         The Password as plain text
 #>
-Function New-PSCredential
-{
-    [OutputType([SecureString])]
-    [CmdletBinding(DefaultParameterSetName='Secure')]
-    param
-    (
-        [Parameter(Mandatory=$true,ParameterSetName='Secure')]
-        [Parameter(Mandatory=$true,ParameterSetName='Plain')]
-        [string]
-        $UserName,
-        [Parameter(Mandatory=$true,ParameterSetName='Secure')]
-        [securestring]
-        $Password,
-        [Parameter(Mandatory=$true,ParameterSetName='Plain')]
-        [string]
-        $ClearPassword
-    )
+# Function New-PSCredential
+# {
+#     [OutputType([SecureString])]
+#     [CmdletBinding(DefaultParameterSetName='Secure')]
+#     param
+#     (
+#         [Parameter(Mandatory=$true,ParameterSetName='Secure')]
+#         [Parameter(Mandatory=$true,ParameterSetName='Plain')]
+#         [string]
+#         $UserName,
+#         [Parameter(Mandatory=$true,ParameterSetName='Secure')]
+#         [securestring]
+#         $Password,
+#         [Parameter(Mandatory=$true,ParameterSetName='Plain')]
+#         [string]
+#         $ClearPassword
+#     )
 
-    if($PSCmdlet.ParameterSetName -eq 'Plain')
-    {
-        $Password=ConvertTo-SecureString -String $ClearPassword -AsPlainText -Force
-    }
-    $Credential=New-Object PSCredential($UserName,$Password)
-    return $Credential
-}
+#     if($PSCmdlet.ParameterSetName -eq 'Plain')
+#     {
+#         $Password=ConvertTo-SecureString -String $ClearPassword -AsPlainText -Force
+#     }
+#     $Credential=New-Object PSCredential($UserName,$Password)
+#     return $Credential
+# }
 
 <#
     .SYNOPSIS

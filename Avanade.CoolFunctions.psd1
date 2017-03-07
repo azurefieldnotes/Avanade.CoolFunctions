@@ -12,7 +12,7 @@
 RootModule = 'CoolFunctions'
 
 # Version number of this module.
-ModuleVersion = '1.1'
+ModuleVersion = '1.1.1'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -76,7 +76,7 @@ FunctionsToExport = @(
     "ConvertTo-Iso8601Time","ConvertTo-NetworkAddressFromCIDR","ConvertTo-NetworkRangeEndFromCIDR",
     "ConvertTo-PrefixLengthFromSubnetMask","ConvertTo-SubnetMaskFromCIDR",
     "ConvertTo-UnixTime","Copy-FileWithProgress","Copy-WebFile","Export-Base64StringToFile",
-    "Export-FileToBase64String","Format-XML","New-PSCredential","Resize-Image"
+    "Export-FileToBase64String","Format-XML","Resize-Image"
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
