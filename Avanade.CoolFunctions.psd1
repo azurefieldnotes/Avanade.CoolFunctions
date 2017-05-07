@@ -76,7 +76,8 @@ FunctionsToExport = @(
     "ConvertTo-Iso8601Time","ConvertTo-NetworkAddressFromCIDR","ConvertTo-NetworkRangeEndFromCIDR",
     "ConvertTo-PrefixLengthFromSubnetMask","ConvertTo-SubnetMaskFromCIDR",
     "ConvertTo-UnixTime","Copy-FileWithProgress","Copy-WebFile","Export-Base64StringToFile",
-    "Export-FileToBase64String","Format-XML","Resize-Image"
+    "Export-FileToBase64String","Format-XML","Resize-Image",
+    "ConvertTo-IPAddress","ConvertFrom-IPAddress","ConvertTo-StringFromIpAddress"
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

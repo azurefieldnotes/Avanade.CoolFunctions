@@ -276,6 +276,103 @@ Function ConvertTo-PrefixLengthFromSubnetMask
     }
 }
 
+Function ConvertTo-IPAddress
+{
+    param
+    (
+        [Parameter(ParameterSetName='ip',ValueFromPipeline=$true,Mandatory=$true)]
+        [long[]]$IPAddress,
+        [Parameter(ParameterSetName='string',ValueFromPipeline=$true,Mandatory=$true)]
+        [String[]]$Address
+    )
+    PROCESS
+    {
+        if ($PSCmdlet.ParameterSetName -eq 'ip')
+        {
+            foreach ($item in $IPAddress) {
+                [System.Net.IPAddress]$ip=New-Object System.Net.IPAddress($item)
+                Write-Output $ip
+            }
+        }
+        else
+        {
+            foreach ($item in $Address)
+            {
+                [System.Net.IPAddress]$ip=$null
+                if ([System.Net.IPAddress]::TryParse($item,[ref]$ip)) {
+                    Write-Output $ip
+                }
+                else {
+                    Write-Warning "[ConvertTo-IPAddress] Error parsing $item $_"
+                }
+            }
+        }
+    }
+}
+
+Function ConvertFrom-IPAddress
+{
+    param
+    (
+        [Parameter(ParameterSetName='ip',ValueFromPipeline=$true,Mandatory=$true)]
+        [System.Net.IPAddress[]]$IPAddress,
+        [Parameter(ParameterSetName='string',ValueFromPipeline=$true,Mandatory=$true)]
+        [String[]]$Address
+    )
+    PROCESS
+    {
+        if ($PSCmdlet.ParameterSetName -eq 'string')
+        {
+            $IPAddress=@()
+            foreach ($IpString in $Address)
+            {
+                [System.Net.IPAddress]$ip=$null
+                if ([System.Net.IPAddress]::TryParse($IpString,[ref]$ip))
+                {
+                    $IPAddress+=$ip
+                }
+                else
+                {
+                    Write-Warning "[ConvertFrom-IPAddress] Error parsing $item $_"
+                }
+            }
+        }
+        foreach ($IpItem in $IPAddress)
+        {
+            [long]$IpLong=0
+            $IpBytes=$IpItem.GetAddressBytes()
+            for($i=0;$i -lt $IpBytes.Count;$i++)
+            {
+                $IpLong+=$([Convert]::ToUInt64($IpBytes[$i]) -shl 8)
+            }
+            Write-Output $IpLong
+        }
+    }
+}
+
+Function ConvertTo-StringFromIpAddress
+{
+    param
+    (
+        [Parameter(ParameterSetName='ip',ValueFromPipeline=$true,Mandatory=$true)]
+        [System.Net.IPAddress[]]$IPAddress,
+        [Parameter(ParameterSetName='long',ValueFromPipeline=$true,Mandatory=$true)]
+        [long[]]$Address
+    )
+    PROCESS
+    {
+        if ($PSCmdlet.ParameterSetName -eq 'long') {
+            $IPAddress=$Address|ForEach-Object{New-Object System.Net.IPAddress($_)}
+        }
+        foreach ($item in $IPAddress)
+        {
+            $IpString="{0}.{1}.{2}.{3}" -f $item.GetAddressBytes()
+            Write-Output $IpString
+        }
+    }
+}
+
+
 #endregion
 
 #region File Copy/Compress Methods
