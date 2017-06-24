@@ -276,6 +276,14 @@ Function ConvertTo-PrefixLengthFromSubnetMask
     }
 }
 
+<#
+    .SYNOPSIS
+        Converts a value to a System.Net.IPAddress entity
+    .PARAMETER IPAddress
+        The IPAddress as a long integer
+    .PARAMETER Address
+        The IPAddress as a string
+#>
 Function ConvertTo-IPAddress
 {
     param
@@ -310,6 +318,14 @@ Function ConvertTo-IPAddress
     }
 }
 
+<#
+    .SYNOPSIS
+        Converts an ip address to the long integer value
+    .PARAMETER IPAddress
+        The System.Net.IPAddress
+    .PARAMETER Address
+        The IPAddress as a string
+#>
 Function ConvertFrom-IPAddress
 {
     param
@@ -339,17 +355,31 @@ Function ConvertFrom-IPAddress
         }
         foreach ($IpItem in $IPAddress)
         {
+
             [long]$IpLong=0
             $IpBytes=$IpItem.GetAddressBytes()
-            for($i=0;$i -lt $IpBytes.Count;$i++)
+            for($i=($IpBytes.Count-1);$i -ge 0;$i--)
             {
-                $IpLong+=$([Convert]::ToUInt64($IpBytes[$i]) -shl 8)
+                $CurrBytes=[Convert]::ToInt64($IpBytes[$i])
+                $IpLong+=$CurrBytes
+                if($i -ne 0)
+                {
+                    $IpLong=$IpLong -shl 8
+                }                
             }
             Write-Output $IpLong
         }
     }
 }
 
+<#
+    .SYNOPSIS
+        Converts an IP Address to the string representation
+    .PARAMETER IPAddress
+        The System.Net.IPAddress
+    .PARAMETER Address
+        The IPAddress as a long integer
+#>
 Function ConvertTo-StringFromIpAddress
 {
     param
@@ -366,12 +396,66 @@ Function ConvertTo-StringFromIpAddress
         }
         foreach ($item in $IPAddress)
         {
-            $IpString="{0}.{1}.{2}.{3}" -f $item.GetAddressBytes()
+            $IpString="{0}.{1}.{2}.{3}" -f $($item.GetAddressBytes())
             Write-Output $IpString
         }
     }
 }
 
+<#
+    .SYNOPSIS
+        Converts an IP Address and Subnet Mask to the CIDR for the host network
+    .PARAMETER IpAddress
+        The ip address as a string
+    .PARAMETER SubnetMask
+        The subnet mask as a string
+    .PARAMETER Ip
+        The ip address as System.Net.IPAddress
+    .PARAMETER Subnet
+        The subnet mask as System.Net.IPAddress
+#>
+Function ConvertFrom-IpAddressToNetworkAddressCIDR
+{
+    [CmdletBinding(DefaultParameterSetName='AsString')]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='AsString')]
+        [String]$IpAddress,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='AsString')]
+        [String]$SubnetMask,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='AsNetIp')]
+        [System.Net.IPAddress]$Ip,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='AsNetIp')]
+        [System.Net.IPAddress]$Subnet,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='AsLong')]
+        [long]$IpAsInteger,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='AsLong')]
+        [long]$SubnetAsInteger     
+    )
+    PROCESS
+    {
+        if($PSCmdlet.ParameterSetName -in 'AsNetIp','AsLong')
+        {
+            if($PSCmdlet.ParameterSetName -eq 'AsLong')
+            {
+                $Ip=$IpAsInteger|ConvertTo-IPAddress
+                $Subnet=$SubnetAsInteger|ConvertTo-IPAddress
+            }
+            $IpAddress=$Ip|ConvertTo-StringFromIpAddress
+            $SubnetMask=$Subnet|ConvertTo-StringFromIpAddress
+        }
+        elseif($PSCmdlet.ParameterSetName -eq 'AsLong')
+        {
+            $IpAddress=$
+        }
+        #Get the prefix length
+        $PrefixLength=$SubnetMask|ConvertTo-PrefixLengthFromSubnetMask
+        $IpCIDR="$IpAddress/$PrefixLength"
+        #Convert to network range
+        $NetworkAddress=$IpCIDR|ConvertTo-NetworkAddressFromCIDR
+        Write-Output "$NetworkAddress/$PrefixLength"
+    }
+}
 
 #endregion
 
