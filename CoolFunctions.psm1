@@ -157,11 +157,18 @@ Function ConvertTo-BroadcastAddressFromCIDR
                 [Array]::Reverse($AddressBytes)
                 $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
                 #Bitwise OR the Host Mask and the IP
-                $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
-                $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -bor $HostMask))
-                [System.Array]::Reverse($NetAddressBytes)
-                $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
-                Write-Output $NetAddressAsIp.IPAddressToString
+                if($PrefixLength -lt 32)
+                {
+                    $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
+                    $NetAddressBytes=[BitConverter]::GetBytes(($IpAsUint -bor $HostMask))
+                    [System.Array]::Reverse($NetAddressBytes)
+                    $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+                    Write-Output $NetAddressAsIp.IPAddressToString
+                }
+                else
+                {
+                    Write-Output $IpString
+                }
             }
             else
             {
@@ -208,12 +215,19 @@ Function ConvertTo-NetworkRangeEndFromCIDR
                     [Array]::Reverse($AddressBytes)
                     $IpAsUint=[System.BitConverter]::ToInt32($AddressBytes,0)
                     #Bitwise OR the Host Mask and the IP
-                    $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
-                    $LastAddress=($IpAsUint -bor $HostMask)-1
-                    $NetAddressBytes=[BitConverter]::GetBytes($LastAddress)
-                    [System.Array]::Reverse($NetAddressBytes)
-                    $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
-                    Write-Output $NetAddressAsIp.IPAddressToString
+                    if($PrefixLength -lt 32)
+                    {
+                        $HostMask = [Convert]::ToUInt32("1" * (32 - $PrefixLength), 2)
+                        $LastAddress=($IpAsUint -bor $HostMask)-1
+                        $NetAddressBytes=[BitConverter]::GetBytes($LastAddress)
+                        [System.Array]::Reverse($NetAddressBytes)
+                        $NetAddressAsIp=New-Object System.Net.IPAddress -ArgumentList (,$NetAddressBytes)
+                        Write-Output $NetAddressAsIp.IPAddressToString
+                    }
+                    else
+                    {
+                        Write-Output $IpString
+                    }
                 }
                 else
                 {
@@ -224,6 +238,44 @@ Function ConvertTo-NetworkRangeEndFromCIDR
     END
     {
 
+    }
+}
+
+Function ConvertTo-AddressCountFromSubnetMask
+{
+    [CmdletBinding(DefaultParameterSetName='int')]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='string')]
+        [string[]]$Subnet,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='int')]
+        [string[]]$PrefixLength
+    )
+    PROCESS
+    {
+        if($PSCmdlet.ParameterSetName -eq 'string')
+        {
+            $PrefixLength=@($Subnet|ConvertTo-PrefixLengthFromSubnetMask)
+        }
+        foreach ($item in $PrefixLength)
+        {
+            switch ($item)
+            {
+                32 {
+                    $UsableAddresses=1
+                }
+                31 {
+                    $UsableAddresses=2
+                }
+                0 {
+                    $UsableAddresses=0
+                }
+                Default {
+                    $UsableAddresses=[math]::Pow(2,(32 - $item))-2
+                }
+            }
+            Write-Output $UsableAddresses
+        }
     }
 }
 
