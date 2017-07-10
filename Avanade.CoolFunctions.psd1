@@ -30,7 +30,7 @@ CompanyName = 'Avanade'
 Copyright = '(c) 2015 Chris Speers. All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Potpourri Bundle of Handy Functions '
+Description = 'Potpourri Bundle of Handy Functions'
 
 # Minimum version of the Windows PowerShell engine required by this module
 # PowerShellVersion = ''
