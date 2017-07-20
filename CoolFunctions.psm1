@@ -3,77 +3,6 @@
 
 <#
     .SYNOPSIS
-        Converts a CIDR or Prefix Length as string to a Subnet Mask
-    .PARAMETER CIDR
-        The CIDR or Prefix Length to convert
-
-#>
-Function ConvertTo-SubnetMaskFromCIDR
-{
-    [CmdletBinding()]
-    [OutputType([String])]
-    param
-    (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
-        [String[]]
-        $CIDR
-    )
-    BEGIN
-    {
-
-    }
-    PROCESS
-    {
-        foreach ($IpRange in $CIDR)
-        {
-            $NetMask="0.0.0.0"
-            $CIDRLength=[System.Convert]::ToInt32(($IpRange.Split('/')|Select-Object -Last 1).Trim())
-            Write-Debug "[ConvertTo-SubnetMaskFromCIDR] Converting Prefix Length $CIDRLength from input $IpRange"
-            switch ($CIDRLength) {
-                {$_ -gt 0 -and $_ -lt 8}
-                {
-                    $binary="$( "1" * $CIDRLength)".PadRight(8,"0")
-                    $o1 = [System.Convert]::ToInt32($binary.Trim(),2)
-                    $NetMask = "$o1.0.0.0"
-                    break
-                }
-                8 {$NetMask="255.0.0.0"}
-                {$_ -gt 8 -and $_ -lt 16}
-                {
-                    $binary="$( "1" * ($CIDRLength - 8))".PadRight(8,"0")
-                    $o2 = [System.Convert]::ToInt32($binary.Trim(),2)
-                    $NetMask = "255.$o2.0.0"
-                    break
-                }
-                16 {$NetMask="255.255.0.0"}
-                {$_ -gt 16 -and $_ -lt 24}
-                {
-                    $binary="$("1" * ($CIDRLength - 16))".PadRight(8,"0")
-                    $o3 = [System.Convert]::ToInt32($binary.Trim(),2)
-                    $NetMask = "255.255.$o3.0"
-                    break
-                }
-                24 {$NetMask="255.255.255.0"}
-                {$_ -gt 24 -and $_ -lt 32}
-                {
-                    $binary="$("1" * ($CIDRLength - 24))".PadRight(8,"0")
-                    $o4 = [convert]::ToInt32($binary.Trim(),2)
-                    $NetMask= "255.255.255.$o4"
-                    break
-                }
-                32 {$NetMask="255.255.255.255"}
-            }
-            Write-Output $NetMask            
-        }
-    }
-    END
-    {
-        
-    }
-}
-
-<#
-    .SYNOPSIS
         Converts a CIDR as string to a network address
     .PARAMETER CIDR
         The CIDR to convert
@@ -326,6 +255,158 @@ Function ConvertTo-PrefixLengthFromSubnetMask
     {
 
     }
+}
+
+<#
+    .SYNOPSIS
+        Converts a CIDR or Prefix Length as string to a Subnet Mask
+    .PARAMETER CIDR
+        The CIDR or Prefix Length to convert
+
+#>
+Function ConvertTo-SubnetMaskFromCIDR
+{
+    [CmdletBinding()]
+    [OutputType([String])]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [String[]]
+        $CIDR
+    )
+    PROCESS
+    {
+        foreach ($IpRange in $CIDR)
+        {
+            $CIDRLength=[System.Convert]::ToInt32(($IpRange.Split('/')|Select-Object -Last 1).Trim())
+            Write-Debug "[ConvertTo-SubnetMaskFromCIDR] Converting Prefix Length $CIDRLength from input $IpRange"
+            Write-Output $($CIDRLength|ConvertTo-SubnetMaskFromPrefixLength)
+        }
+    }
+}
+
+Function ConvertTo-SubnetMaskFromPrefixLength
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [int[]]$PrefixLength
+    )
+    PROCESS
+    {
+        foreach ($CIDRLength in $PrefixLength) {
+            $NetMask="0.0.0.0"
+            Write-Debug "[ConvertTo-SubnetMaskFromPrefixLength] Converting Prefix Length $CIDRLength"
+            switch ($CIDRLength) {
+                {$_ -gt 0 -and $_ -lt 8}
+                {
+                    $binary="$( "1" * $CIDRLength)".PadRight(8,"0")
+                    $o1 = [System.Convert]::ToInt32($binary.Trim(),2)
+                    $NetMask = "$o1.0.0.0"
+                    break
+                }
+                8 {$NetMask="255.0.0.0"}
+                {$_ -gt 8 -and $_ -lt 16}
+                {
+                    $binary="$( "1" * ($CIDRLength - 8))".PadRight(8,"0")
+                    $o2 = [System.Convert]::ToInt32($binary.Trim(),2)
+                    $NetMask = "255.$o2.0.0"
+                    break
+                }
+                16 {$NetMask="255.255.0.0"}
+                {$_ -gt 16 -and $_ -lt 24}
+                {
+                    $binary="$("1" * ($CIDRLength - 16))".PadRight(8,"0")
+                    $o3 = [System.Convert]::ToInt32($binary.Trim(),2)
+                    $NetMask = "255.255.$o3.0"
+                    break
+                }
+                24 {$NetMask="255.255.255.0"}
+                {$_ -gt 24 -and $_ -lt 32}
+                {
+                    $binary="$("1" * ($CIDRLength - 24))".PadRight(8,"0")
+                    $o4 = [convert]::ToInt32($binary.Trim(),2)
+                    $NetMask= "255.255.255.$o4"
+                    break
+                }
+                32 {$NetMask="255.255.255.255"}
+            }
+            Write-Output $NetMask            
+        }
+    }
+}
+
+Function ConvertTo-SupernetFromCIDR
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [String[]]$NetworkCIDR
+    )
+    BEGIN
+    {
+        $NetworkIds=@()
+        $PreviousMaskLength=0
+        $MaskLength=0
+    }
+    PROCESS
+    {
+        #Check that these all have the same subnet mask
+        foreach ($item in $NetworkCIDR)
+        {
+            $NetworkIds+=$item.Split('/')[0]|ConvertFrom-IPAddress
+            $MaskLength=[Convert]::ToInt32($item.Split('/')[1])
+            if($PreviousMaskLength -ne 0)
+            {
+                if($MaskLength -ne $PreviousMaskLength){
+                    throw "The subnets are not the same length"
+                }
+            }
+            $PreviousMaskLength=$MaskLength
+        }
+    }
+    END
+    {
+        $HighestNetwork=$NetworkIds|Sort-Object -Descending|Select-Object -First 1
+        $HighestCIDR="$(($HighestNetwork|ConvertTo-IPAddress).IPAddressToString)/$MaskLength"
+        $HighestBroadcast=$HighestCIDR|ConvertTo-BroadcastAddressFromCIDR
+        Write-Verbose "[ConvertTo-SupernetFromCIDR] Highest Network: $HighestCIDR Broadcast:$HighestBroadcast"
+        $LowestNetwork=$NetworkIds|Sort-Object -Descending|Select-Object -Last 1
+        $LowestCIDR="$(($LowestNetwork|ConvertTo-IPAddress).IPAddressToString)/$MaskLength"
+        $LowestBroadcast=$LowestCIDR|ConvertTo-BroadcastAddressFromCIDR
+        Write-Verbose "[ConvertTo-SupernetFromCIDR] Lowest Network: $LowestCIDR Broadcast:$LowestBroadcast"
+        for ($i = 1; $i -lt 33; $i++)
+        { 
+            Write-Verbose "[ConvertTo-SupernetFromCIDR] Checking for mask length alignment $($i|ConvertTo-SubnetMaskFromPrefixLength) ..."
+            if(($HighestNetwork -shr $i) -eq ($LowestNetwork -shr $i))
+            {
+                $SupernetCIDR="$(($LowestNetwork|ConvertTo-IPAddress).IPAddressToString)/$i"
+                Write-Verbose "[ConvertTo-SupernetFromCIDR] Found an alignment match $i $SupernetCIDR!"
+                Write-Output $SupernetCIDR
+                break
+            }
+        }
+    }
+}
+
+Function Test-NetworkContains
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]
+        [String]$NetworkCIDR,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]
+        [string]$IPAddress
+    )
+
+    $NetworkLong=$NetworkCIDR.Split('/')[0]|ConvertFrom-IPAddress
+    $IpLong=0
+    $NetworkBroadcast=$NetworkCIDR|ConvertTo-BroadcastAddressFromCIDR|ConvertFrom-IPAddress
+    $Contains=($NetworkLong -ge $IpLong) -and ($IpLong -le $NetworkBroadcast)
+    Write-Output $Contains
 }
 
 <#
@@ -767,20 +848,25 @@ Function Copy-FileWithProgress
                     $Total += $ReadCount
                     $TotalCopiedInMb=$Total/1MB
                     $CurrentSpeed=($TotalCopiedInMb/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")
+                    $EstSecondsRemaining=[Math]::Max(1, ($StopWatch.Elapsed.TotalSeconds / $($TotalCopiedInMb/$FileSizeInMb)) - $StopWatch.Elapsed.TotalSeconds)
                     if ($Total % 1mb -eq 0)
                     {
                         $CurrentProgress=[int]($TotalCopiedInMb/$FileSizeInMb * 100)
-                        Write-Progress -Id $ActivityId `
-                        -Activity "$ActivityName %$CurrentProgress"`
-                        -ParentId $ParentActivityId `
-                        -Status "Copying $item -> $To ($($TotalCopiedInMb.ToString("#.##")) of $($FileSizeInMb.ToString("#.##")) Mb) $($CurrentSpeed) MB/s" `
-                        -PercentComplete $CurrentProgress
+                        $ProgressParams=@{
+                            Id=$ActivityId;
+                            ParentId=$ParentActivityId;
+                            Activity="$ActivityName %$CurrentProgress";
+                            Status="Copying $item -> $To ($($TotalCopiedInMb.ToString("#.##")) of $($FileSizeInMb.ToString("#.##")) Mb) $($CurrentSpeed) MB/s";
+                            PercentComplete=$CurrentProgress;
+                            SecondsRemaining=$EstSecondsRemaining;
+                        }
+                        Write-Progress @ProgressParams
                     }
                 } while ($ReadCount -gt 0)
                 Write-Progress -Id $ActivityId -Activity $ActivityName `
                     -ParentId $ParentActivityId `
                     -PercentComplete $CurrentProgress -Completed
-                $StopWatch.Stop()
+                $StopWatch.Stop()     
                 Write-Verbose "END:Copy $item -> $To Took:$($StopWatch.ElapsedMilliseconds)ms. $($CurrentSpeed) MB/s"
             }
             catch [System.IO.IOException],[System.Exception]
@@ -1092,42 +1178,6 @@ Function Format-XML
 
     }
 }
-
-<#
-    .SYNOPSIS
-        Simple constructor wrapper for PSCredential
-    .PARAMETER UserName
-        The UserName
-    .PARAMETER Password
-        The Password as a SecureString
-    .PARAMETER ClearPassword
-        The Password as plain text
-#>
-# Function New-PSCredential
-# {
-#     [OutputType([SecureString])]
-#     [CmdletBinding(DefaultParameterSetName='Secure')]
-#     param
-#     (
-#         [Parameter(Mandatory=$true,ParameterSetName='Secure')]
-#         [Parameter(Mandatory=$true,ParameterSetName='Plain')]
-#         [string]
-#         $UserName,
-#         [Parameter(Mandatory=$true,ParameterSetName='Secure')]
-#         [securestring]
-#         $Password,
-#         [Parameter(Mandatory=$true,ParameterSetName='Plain')]
-#         [string]
-#         $ClearPassword
-#     )
-
-#     if($PSCmdlet.ParameterSetName -eq 'Plain')
-#     {
-#         $Password=ConvertTo-SecureString -String $ClearPassword -AsPlainText -Force
-#     }
-#     $Credential=New-Object PSCredential($UserName,$Password)
-#     return $Credential
-# }
 
 <#
     .SYNOPSIS
