@@ -12,7 +12,7 @@
 RootModule = 'CoolFunctions'
 
 # Version number of this module.
-ModuleVersion = '1.3.1'
+ModuleVersion = '1.3.2'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -78,7 +78,8 @@ FunctionsToExport = @(
     "ConvertTo-UnixTime","Copy-FileWithProgress","Copy-WebFile","Export-Base64StringToFile",
     "Export-FileToBase64String","Format-XML","Resize-Image",
     "ConvertTo-IPAddress","ConvertFrom-IPAddress","ConvertTo-StringFromIpAddress",
-    'ConvertFrom-IpAddressToNetworkAddressCIDR','ConvertTo-AddressCountFromSubnetMask','ConvertTo-SupernetFromCIDR',
+    'ConvertFrom-IpAddressToNetworkAddressCIDR',
+    'ConvertTo-AddressCountFromSubnetMask','ConvertTo-AddressCountFromPrefixLength','ConvertTo-SupernetFromCIDR',
     'Test-NetworkContains'
 )
 

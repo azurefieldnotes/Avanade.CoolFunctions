@@ -170,22 +170,16 @@ Function ConvertTo-NetworkRangeEndFromCIDR
     }
 }
 
-Function ConvertTo-AddressCountFromSubnetMask
+Function ConvertTo-AddressCountFromPrefixLength
 {
-    [CmdletBinding(DefaultParameterSetName='int')]
+    [CmdletBinding()]
     param
     (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='string')]
-        [string[]]$Subnet,
-        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='int')]
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
         [int[]]$PrefixLength
     )
     PROCESS
     {
-        if($PSCmdlet.ParameterSetName -eq 'string')
-        {
-            $PrefixLength=@($Subnet|ConvertTo-PrefixLengthFromSubnetMask)
-        }
         foreach ($item in $PrefixLength)
         {
             switch ($item)
@@ -203,6 +197,24 @@ Function ConvertTo-AddressCountFromSubnetMask
                     $UsableAddresses=[math]::Pow(2,(32 - $item))-2
                 }
             }
+            Write-Output $UsableAddresses
+        }
+    }
+}
+
+Function ConvertTo-AddressCountFromSubnetMask
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [string[]]$Subnet
+    )
+    PROCESS
+    {
+        foreach ($item in $Subnet)
+        {
+            $UsableAddresses=$item|ConvertTo-PrefixLengthFromSubnetMask|ConvertTo-AddressCountFromPrefixLength
             Write-Output $UsableAddresses
         }
     }
