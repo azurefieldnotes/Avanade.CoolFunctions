@@ -178,7 +178,7 @@ Function ConvertTo-AddressCountFromSubnetMask
         [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='string')]
         [string[]]$Subnet,
         [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='int')]
-        [string[]]$PrefixLength
+        [int[]]$PrefixLength
     )
     PROCESS
     {
