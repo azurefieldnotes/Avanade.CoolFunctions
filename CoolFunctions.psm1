@@ -820,11 +820,6 @@ Function Copy-FileWithProgress
         [Parameter(Mandatory=$false,ParameterSetName='fileinfo')]
         [uint32]$BufferLength=1MB
     )
-
-    BEGIN
-    {
-
-    }
     PROCESS
     {
         foreach ($item in $From)
@@ -859,10 +854,10 @@ Function Copy-FileWithProgress
                     $Tofile.Write($FileBuffer, 0, $ReadCount)
                     $Total += $ReadCount
                     $TotalCopiedInMb=$Total/1MB
-                    $CurrentSpeed=($TotalCopiedInMb/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")
-                    $EstSecondsRemaining=[Math]::Max(1, ($StopWatch.Elapsed.TotalSeconds / $($TotalCopiedInMb/$FileSizeInMb)) - $StopWatch.Elapsed.TotalSeconds)
-                    if ($Total % 1mb -eq 0)
+                    $CurrentSpeed=($TotalCopiedInMb/$StopWatch.Elapsed.TotalSeconds).ToString("#.##")                    
+                    if ($Total % 1mb -eq 0 -and ($FileSizeInMb -ge 1))
                     {
+                        $EstSecondsRemaining=[Math]::Max(1, ($StopWatch.Elapsed.TotalSeconds / $($TotalCopiedInMb/$FileSizeInMb)) - $StopWatch.Elapsed.TotalSeconds)
                         $CurrentProgress=[int]($TotalCopiedInMb/$FileSizeInMb * 100)
                         $ProgressParams=@{
                             Id=$ActivityId;
@@ -895,10 +890,6 @@ Function Copy-FileWithProgress
                 }
             }
         }
-    }
-    END
-    {
-
     }
 }
 
