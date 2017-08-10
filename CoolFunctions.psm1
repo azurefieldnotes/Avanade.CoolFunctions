@@ -1365,3 +1365,10 @@ function ConvertFrom-Xml
 
     }
 }
+
+Function Get-RandomFreeDriveLetter
+{
+    [CmdletBinding()]
+    param()
+    Write-Output $((Get-ChildItem function:[d-z]: -n | Where-Object{ !(Test-Path $_) } | Get-Random).ToCharArray()[0])
+}
