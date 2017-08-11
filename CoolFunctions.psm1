@@ -1372,3 +1372,39 @@ Function Get-RandomFreeDriveLetter
     param()
     Write-Output $((Get-ChildItem function:[d-z]: -n | Where-Object{ !(Test-Path $_) } | Get-Random).ToCharArray()[0])
 }
+
+<#
+    .SYNOPSIS
+    Creates a new random string of the specified length
+    .DESCRIPTION
+    Creates a new random string of the specified length
+    .PARAMETER Length
+    The length of the desired string
+    .PARAMETER Alphanumeric
+    Limit to Alphanumeric characters
+#>
+Function New-PseudoRandomString
+{
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true)]
+        [int]$Length,
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true)]
+        [switch]$Alphanumeric
+    )
+    $Seed="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    $Seed+=$Seed.ToLower()
+    $Seed+="1234567890"
+    if(-not $Alphanumeric.IsPresent)
+    {
+        $Seed+="!@#$%^&*()-=_+[]\{}|;':`",./<>?"
+    }
+
+    if($Length -gt $Seed.Length)
+    {
+        throw "Random strings of max length of $($Seed.Length) are only supported"
+    }
+    $Chars=$Seed.ToCharArray()
+    $RandomString=[string]::Join('',$(Get-Random -InputObject $Chars -Count $Length))
+    Write-Output $RandomString
+}

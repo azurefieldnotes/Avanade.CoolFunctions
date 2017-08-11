@@ -12,7 +12,7 @@
 RootModule = 'CoolFunctions'
 
 # Version number of this module.
-ModuleVersion = '1.3.3'
+ModuleVersion = '1.3.4'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -80,7 +80,7 @@ FunctionsToExport = @(
     "ConvertTo-IPAddress","ConvertFrom-IPAddress","ConvertTo-StringFromIpAddress",
     'ConvertFrom-IpAddressToNetworkAddressCIDR',
     'ConvertTo-AddressCountFromSubnetMask','ConvertTo-AddressCountFromPrefixLength','ConvertTo-SupernetFromCIDR',
-    'Test-NetworkContains','Get-RandomFreeDriveLetter'
+    'Test-NetworkContains','Get-RandomFreeDriveLetter','New-PseudoRandomString'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
