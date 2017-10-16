@@ -1090,12 +1090,16 @@ Function Resize-Image
     [OutputType([void])]
 	param
 	(
-		[Parameter(ValueFromPipeline=$true,Mandatory=$true,ParameterSetName='io')]
+		[Parameter(ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,Mandatory=$true,ParameterSetName='io')]
 		[System.IO.FileInfo[]]$Source,
-		[Parameter()]
+		[Parameter(ValueFromPipelineByPropertyName=$true,Mandatory=$false)]
         [System.String]$Destination = $env:TEMP,
-		[Parameter()]
-        [System.Double]$Scale = 0.50
+		[Parameter(ValueFromPipelineByPropertyName=$true,Mandatory=$false)]
+        [System.Double]$Scale = 0.50,
+        [Parameter(ValueFromPipelineByPropertyName=$true,Mandatory=$false)]
+        [switch]$Rename,
+        [Parameter(ValueFromPipelineByPropertyName=$true,Mandatory=$false)]
+        [switch]$LeaveAtSource        
 	)
     BEGIN
     {
@@ -1105,26 +1109,58 @@ Function Resize-Image
     {
 	    foreach($item in $Source)
 	    {
+            $FileExtension=$item.Extension.Substring(1)
             Write-Verbose "[Resize-Image] Resizing image $($item.FullName)->$destinationPath using Scale ScaleTransform $Scale"
-            #Prevent the file from getting locked
-		    $ImageSource=New-Object System.Windows.Media.Imaging.BitmapImage
+            # Open and resize the image
+            # Prevent the file from getting locked
+            $ImageSource=New-Object System.Windows.Media.Imaging.BitmapImage
             $ImageSource.BeginInit()
             $ImageSource.UriSource=$item.FullName
             $ImageSource.CacheOption=[System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
             $ImageSource.EndInit()
-		    ## Open and resize the image
+
+            Write-Verbose "[Resize-Image] Image Type:$FileExtension Size:$($ImageSource.PixelWidth)x$($ImageSource.PixelHeight)"
+		 
+            if ($LeaveAtSource.IsPresent -or $Rename.IsPresent)
+            {
+                $OutFileName="$($item.BaseName)-$($ImageSource.PixelWidth * $Scale)x$($ImageSource.PixelHeight * $Scale)$($item.Extension)"
+            }
+            else
+            {
+                $OutFileName=$item.Name
+            }
+
+            if ($LeaveAtSource.IsPresent)
+            {
+                $destinationPath=Join-Path $item.Directory.FullName $OutFileName
+            }
+            else
+            {
+                $destinationPath=Join-Path $Destination $OutFileName
+            }
+            Write-Verbose "[Resize-Image] $destinationPath - Target Size:$($ImageSource.PixelWidth * $Scale)x$($ImageSource.PixelHeight * $Scale)"
 		    $image = New-Object System.Windows.Media.Imaging.TransformedBitmap ($ImageSource,$ScaleTransform)
 		    ## Put it on the clipboard (just for fun)
-		    #[System.Windows.Clipboard]::SetImage($image)
-
-		    $destinationPath=Join-Path $Destination $item.Name
+            #[System.Windows.Clipboard]::SetImage($image)
+            
 		    ## Write out an image file:
-		    $stream = [System.IO.File]::Open($destinationPath, "OpenOrCreate")
-		    $encoder = New-Object System.Windows.Media.Imaging.$($item.Extension.Substring(1))BitmapEncoder
-		    $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($image))
-		    $encoder.Save($stream)
-            Write-Verbose "[Resize-Image] Saved $destinationPath"
-		    $stream.Dispose()
+            $stream = [System.IO.File]::Open($destinationPath, "OpenOrCreate")
+            try
+            {
+                $encoder = New-Object System.Windows.Media.Imaging.$($FileExtension)BitmapEncoder
+                $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($image))
+                $encoder.Save($stream)
+                Write-Verbose "[Resize-Image] Saved $destinationPath"
+            }
+            catch
+            {
+                Write-Error "[Resize-Image] An error occurred. $_"
+                throw $_
+            }
+            finally
+            {
+                $stream.Dispose()
+            }
 	    }
     }
     END
@@ -1407,4 +1443,37 @@ Function New-PseudoRandomString
     $Chars=$Seed.ToCharArray()
     $RandomString=[string]::Join('',$(Get-Random -InputObject $Chars -Count $Length))
     Write-Output $RandomString
+}
+
+Function New-PseudoRandomMacAddress
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$false)]
+        [switch]$Flat,
+        [Parameter(Mandatory=$false)]
+        [switch]$ColonDelimited
+    )
+    $Items=@()
+    #'AC-AB-BB-8A-AE-BA'
+    $HexChars="0123456789ABCDEF".ToCharArray()
+    $Delimiter='-'
+    if($ColonDelimited.IsPresent)
+    {
+        $Delimiter=':'
+    }
+    for ($i = 0; $i -lt 6; $i++)
+    { 
+        $Items+=$([string]::Join([string]::Empty,(Get-Random -Count 2 -InputObject $HexChars)))
+    }
+    if($Flat.IsPresent)
+    {
+        $Result=[String]::Join([string]::Empty,$Items)
+    }
+    else
+    {
+        $Result=[String]::Join($Delimiter,$Items)
+    }
+    Write-Output $Result
 }
