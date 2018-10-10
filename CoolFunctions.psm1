@@ -1584,3 +1584,58 @@ Function New-CiscoHashFile
         }
     }
 }
+
+Function ConvertFrom-ASDot
+{
+    [CmdletBinding(DefaultParameterSetName='string')]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='normal')]
+        [ValidateRange(1,65535)]
+        [uint16]$FirstPart,
+        [Parameter(Mandatory=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='normal')]
+        [ValidateRange(1,65535)]
+        [uint16]$SecondPart,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ParameterSetName='string')]
+        [String[]]$String
+    )
+    BEGIN{}
+    PROCESS
+    {
+        if($PSCmdlet.ParameterSetName -eq 'normal')
+        {
+            Write-Output $(($FirstPart * ([uint16]::MaxValue + 1)) + $SecondPart)
+        }
+        else
+        {
+            foreach ($item in $String)
+            {
+                $FirstPart=[uint16]::Parse($item.Split('.')[0])
+                $SecondPart=[uint16]::Parse($item.Split('.')[1])
+                Write-Output $(($FirstPart * ([uint16]::MaxValue + 1)) + $SecondPart)
+            }
+        }
+    }
+    END{}
+}
+
+Function ConvertTo-ASDot
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [ValidateRange(1,4294967295)]
+        [uint32[]]$ASN
+    )
+    PROCESS
+    {
+        foreach ($item in $ASN)
+        {
+            $Part1=[Math]::Floor($item/([uint16]::MaxValue + 1))
+            $Part2= $item % ([uint16]::MaxValue+1)
+            $AsDot="{0}.{1}" -f  $Part1,$Part2
+            Write-Output $AsDot
+        }
+    }
+}
