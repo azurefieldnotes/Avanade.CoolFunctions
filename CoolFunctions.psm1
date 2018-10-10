@@ -1477,3 +1477,110 @@ Function New-PseudoRandomMacAddress
     }
     Write-Output $Result
 }
+
+Function New-Md5HashAsBase64
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline)]
+        [System.IO.FileInfo[]]$InputObject
+    )
+    PROCESS
+    {
+        foreach ($item in $InputObject)
+        {
+            $Md5Hash=@()
+            $HashResult=Get-FileHash -Path $item.FullName -Algorithm MD5|Select-Object -ExpandProperty Hash
+            for ($i = 0; $i -lt $HashResult.Length; $i+=2)
+            { 
+                $Md5Hash+=$([Byte]::Parse($HashResult.Substring($i,2) -f "0:x",[System.Globalization.NumberStyles]::HexNumber))
+            }
+            Write-Output $([System.Convert]::ToBase64String($Md5Hash))
+        }
+    }
+}
+
+<#
+    .SYNOPSIS
+        Creates an MD5 file for use with Cisco POAP from a given File
+    .DESCRIPTION
+        Creates an MD5 file for use with Cisco POAP from a given File
+    .PARAMETER InputObject
+        File(s) to have hash files created
+    .PARAMETER IsEmbedded
+        Whether an embedded md5 hash (for a script) will be created
+#>
+Function New-CiscoHashFile
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+        [System.IO.FileInfo[]]$InputObject,
+        [Parameter(Mandatory=$false,ValueFromPipelineByPropertyName=$true)]
+        [Switch]$IsEmbedded
+    )
+    PROCESS
+    {
+        foreach ($item in $InputObject)
+        {
+            $OutputFile=$(Join-Path (Split-Path $item.FullName -Parent) "$($item.Name).md5")
+            if($IsEmbedded.IsPresent)
+            {
+                $FileStream=$null
+                try
+                {
+                    $HashIndex=0
+                    $LineIndex=0
+                    $FileLines=@()
+                    #Read the file and identify where the hash line is
+                    Write-Verbose "Creating embedded MD5 File ${OutputFile} from ${item.FullName}"
+                    $FileStream=$item.OpenText()
+                    while ($FileStream.EndOfStream -eq $false)
+                    {
+                        $CurrentLine=$FileStream.ReadLine()
+                        if($CurrentLine -like "*#md5sum=*" -and $HashIndex -eq 0)
+                        {
+                            #We'll replace this line once we calculate the md5
+                            $HashIndex=$LineIndex
+                        }
+                        $FileLines+=$CurrentLine
+                        $LineIndex++
+                    }
+                    $FileStream.Close()
+                    if($HashIndex -eq 0) {throw "Unable to locate the hash-line!"}
+                    #Write a 'clean' version of the file out...
+                    $FileStream=[System.IO.File]::CreateText($OutputFile)                    
+                    for ($i = 0; $i -lt $FileLines.Length; $i++)
+                    { 
+                        if($i -ne $HashIndex)
+                        {
+                            $FileStream.WriteLine($FileLines[$i])
+                        }
+                    }
+                    $FileStream.Close()
+                    Write-Verbose "Created $OutputFile successfully! Now creating MD5 Hash."
+                    $OutputFileHash=Get-FileHash -Path $OutputFile -Algorithm MD5|Select-Object -ExpandProperty Hash
+                    $FileLines[$HashIndex]="#md5sum=`"$($OutputFileHash.ToLower())`""
+                    $FileContent=[String]::Join([environment]::NewLine,$FileLines)
+                    Set-Content -Value $FileContent -Encoding Default -Path $item.FullName -Force -NoNewline
+                    Write-Verbose "Updated $($item.FullName) with md5sum $OutputFileHash"
+                }
+                catch
+                {
+                    throw $_
+                }
+                finally
+                {
+                    $FileStream.Dispose()
+                }
+            }
+            else
+            {
+                $FileHash=$(($item|Get-FileHash -Algorithm MD5|Select-Object -ExpandProperty Hash).ToLower())
+                "md5 = $FileHash"|Set-Content -Path $OutputFile -Encoding ascii -Force -NoNewline
+            }
+        }
+    }
+}
