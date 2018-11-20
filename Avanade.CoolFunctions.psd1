@@ -12,7 +12,7 @@
 RootModule = 'CoolFunctions'
 
 # Version number of this module.
-ModuleVersion = '1.3.7'
+ModuleVersion = '1.3.8'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -81,7 +81,7 @@ FunctionsToExport = @(
     'ConvertFrom-IpAddressToNetworkAddressCIDR',
     'ConvertTo-AddressCountFromSubnetMask','ConvertTo-AddressCountFromPrefixLength','ConvertTo-SupernetFromCIDR',
     'Test-NetworkContains','Get-RandomFreeDriveLetter','New-PseudoRandomString','New-PseudoRandomMacAddress',
-    'ConvertFrom-ASDot','ConvertTo-ASDot','New-CiscoHashFile'
+    'ConvertFrom-ASDot','ConvertTo-ASDot','New-CiscoHashFile','Remove-UnicodeEscaping'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

@@ -1639,3 +1639,33 @@ Function ConvertTo-ASDot
         }
     }
 }
+
+<#
+    .SYNOPSIS
+        Naive method to strip unicode escape characters from a string
+    .PARAMETER InputObject
+        The string to clean up
+#>
+Function Remove-UnicodeEscaping
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [String[]]$InputObject
+    )
+    PROCESS
+    {
+        foreach ($item in $InputObject)
+        {
+            $RegexPattern='\\u[a-fA-F0-9]{4}'
+            $ReplaceScript={
+                $charVal=$args[0].Value -replace '\\u','0x'
+                $cleared=[char]::ConvertFromUtf32($charVal)
+                Write-Output $cleared
+            }
+            $Cleaned=[regex]::replace($item,$RegexPattern,$ReplaceScript)
+            Write-Output $Cleaned
+        }
+    }
+}
